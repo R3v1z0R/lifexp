@@ -10,14 +10,25 @@ export function Login() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   if (user) return <Navigate to="/" replace />;
 
+  function switchMode(next: "login" | "register") {
+    setMode(next);
+    setError(null);
+    setConfirm("");
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (mode === "register" && password !== confirm) {
+      setError("Passwords don't match. Please re-enter them.");
+      return;
+    }
     setBusy(true);
     try {
       if (mode === "register") await register(username, email, password);
@@ -42,10 +53,10 @@ export function Login() {
 
         <div className="panel p-6">
           <div className="mb-5 grid grid-cols-2 gap-1 rounded-xl bg-bg/60 p-1">
-            <TabButton active={mode === "login"} onClick={() => setMode("login")}>
+            <TabButton active={mode === "login"} onClick={() => switchMode("login")}>
               Sign in
             </TabButton>
-            <TabButton active={mode === "register"} onClick={() => setMode("register")}>
+            <TabButton active={mode === "register"} onClick={() => switchMode("register")}>
               New hero
             </TabButton>
           </div>
@@ -76,6 +87,16 @@ export function Login() {
               autoComplete={mode === "register" ? "new-password" : "current-password"}
               required
             />
+            {mode === "register" && (
+              <Field
+                label="Confirm password"
+                type="password"
+                value={confirm}
+                onChange={setConfirm}
+                autoComplete="new-password"
+                required
+              />
+            )}
 
             {error && (
               <p className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
