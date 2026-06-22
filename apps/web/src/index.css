@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+/* ── LifeXP design tokens ─────────────────────────────────────────────
+   RPG character-sheet HUD: deep indigo base, gold XP energy, arcane violet. */
+@theme {
+  --color-bg: #0e1020;
+  --color-panel: #181b33;
+  --color-panel2: #20243f;
+  --color-line: #2a2e4d;
+  --color-ink: #e8e9f3;
+  --color-muted: #8a8fb5;
+  --color-xp: #f5b445;
+  --color-xp2: #f9d976;
+  --color-arcane: #6c5ce7;
+  --color-arcane2: #8b7df0;
+  --color-streak: #3fd68c;
+  --color-danger: #ff6b6b;
+
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --radius-card: 18px;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-bg);
+    color-scheme: dark;
+  }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(1100px 600px at 78% -8%, rgba(108, 92, 231, 0.16), transparent 60%),
+      radial-gradient(900px 520px at 8% 108%, rgba(245, 180, 69, 0.08), transparent 55%),
+      var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  * {
+    border-color: var(--color-line);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-xp);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}
+
+/* HUD readout numerals */
+.hud {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* The one bold thing: a breathing gold glow around the hero ring. */
+.ring-glow {
+  filter: drop-shadow(0 0 14px rgba(245, 180, 69, 0.45));
+  animation: ringpulse 3.6s ease-in-out infinite;
+}
+@keyframes ringpulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 10px rgba(245, 180, 69, 0.35));
+  }
+  50% {
+    filter: drop-shadow(0 0 22px rgba(245, 180, 69, 0.6));
+  }
+}
+
+/* XP bar fill shimmer */
+.xp-fill {
+  background: linear-gradient(90deg, var(--color-xp), var(--color-xp2));
+}
+
+.panel {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
+    var(--color-panel);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}

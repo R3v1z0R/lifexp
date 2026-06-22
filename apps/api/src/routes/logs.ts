@@ -3,7 +3,7 @@ import { authenticate } from "../middleware/auth";
 import { logActivity } from "../services/logService";
 import { db } from "../db";
 import * as schema from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 interface LogActivityBody {
   activitySlug: string;
@@ -63,11 +63,12 @@ export async function logsRoutes(app: FastifyInstance) {
         return reply.status(401).send({ error: "Unauthorized" });
       }
 
-      const logs = await db.query.activity_logs.findMany({
-        where: eq(schema.activity_logs.user_id, user.userId),
-        orderBy: (logs, { desc }) => desc(logs.logged_at),
-        limit: 50,
-      });
+      const logs = await db
+        .select()
+        .from(schema.activity_logs)
+        .where(eq(schema.activity_logs.user_id, user.userId))
+        .orderBy(desc(schema.activity_logs.logged_at))
+        .limit(50);
 
       reply.send(logs);
     }
