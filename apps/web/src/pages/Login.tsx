@@ -17,8 +17,12 @@ export function Login() {
   if (user) return <Navigate to="/" replace />;
 
   function switchMode(next: "login" | "register") {
+    if (next === mode) return;
     setMode(next);
     setError(null);
+    // Start each form with a clean slate — no carried-over credentials.
+    setEmail("");
+    setPassword("");
     setConfirm("");
   }
 
@@ -77,6 +81,7 @@ export function Login() {
               value={email}
               onChange={setEmail}
               autoComplete="email"
+              placeholder="example@example.com"
               required
             />
             <Field
@@ -152,6 +157,7 @@ function Field({
   onChange: (v: string) => void;
   type?: string;
   autoComplete?: string;
+  placeholder?: string;
   required?: boolean;
 }) {
   return (
