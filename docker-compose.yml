@@ -1,0 +1,73 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lifexp-postgres
+    environment:
+      POSTGRES_USER: lifexp
+      POSTGRES_PASSWORD: lifexp
+      POSTGRES_DB: lifexp
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lifexp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lifexp-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: lifexp-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lifexp-network
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: lifexp-api
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://lifexp:lifexp@postgres:5432/lifexp
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-secret-key-change-in-production
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - lifexp-network
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/apps/api/dist
+      - /app/apps/api/node_modules
+    command:
+      - sh
+      - -c
+      - "cd /app/apps/api && pnpm dev"
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  lifexp-network:
+    driver: bridge

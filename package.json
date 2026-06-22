@@ -1,0 +1,24 @@
+{
+  "name": "lifexp",
+  "version": "1.0.0",
+  "description": "LifeXP - Gamified Life-Tracking App",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "db:push": "pnpm --filter @lifexp/api db:push",
+    "db:seed": "pnpm --filter @lifexp/api db:seed",
+    "db:migrate": "pnpm --filter @lifexp/api db:migrate"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.6.0"
+  },
+  "packageManager": "pnpm@11.8.0"
+}
+

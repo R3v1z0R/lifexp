@@ -1,0 +1,71 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lifexp-postgres-dev
+    environment:
+      POSTGRES_USER: lifexp
+      POSTGRES_PASSWORD: lifexp
+      POSTGRES_DB: lifexp
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lifexp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lifexp-network-dev
+
+  redis:
+    image: redis:7-alpine
+    container_name: lifexp-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data_dev:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lifexp-network-dev
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: lifexp-api-dev
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://lifexp:lifexp@postgres:5432/lifexp
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-secret-key
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - lifexp-network-dev
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/apps/api/node_modules
+    command: sh -c "cd apps/api && pnpm db:push && pnpm db:seed && pnpm dev"
+    stdin_open: true
+    tty: true
+
+volumes:
+  postgres_data_dev:
+  redis_data_dev:
+
+networks:
+  lifexp-network-dev:
+    driver: bridge

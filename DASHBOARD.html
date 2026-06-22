@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LifeXP Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: #94a3b8;
+            font-size: 1.1em;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .card h2 {
+            color: #60a5fa;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            color: #cbd5e1;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 4px;
+            color: #e2e8f0;
+            font-size: 0.95em;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+        }
+
+        button {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .response {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .success {
+            border-left: 4px solid #10b981;
+            color: #10b981;
+        }
+
+        .error {
+            border-left: 4px solid #ef4444;
+            color: #ef4444;
+        }
+
+        .info {
+            border-left: 4px solid #3b82f6;
+            color: #3b82f6;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 15px;
+            background: #0f172a;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ef4444;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.online {
+            background: #10b981;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .api-url {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 15px;
+            background: #1e293b;
+            border-radius: 4px;
+            border: 1px solid #334155;
+        }
+
+        .api-url strong {
+            color: #60a5fa;
+        }
+
+        .section-title {
+            font-size: 1.3em;
+            color: #60a5fa;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #334155;
+        }
+
+        .activity-option {
+            padding: 10px;
+            background: #0f172a;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚡ LifeXP Dashboard</h1>
+            <p class="subtitle">Gamified Life-Tracking API Test Console</p>
+        </header>
+
+        <div class="api-url">
+            <strong>API Server:</strong> http://localhost:3000
+        </div>
+
+        <div class="status">
+            <div class="status-indicator online" id="statusIndicator"></div>
+            <span id="statusText">Checking connection...</span>
+        </div>
+
+        <div class="grid">
+            <!-- Auth Section -->
+            <div class="card">
+                <h2>👤 Register/Login</h2>
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" id="email" placeholder="test@example.com" value="test@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Username:</label>
+                    <input type="text" id="username" placeholder="athlete123" value="">
+                </div>
+                <div class="form-group">
+                    <label>Password:</label>
+                    <input type="password" id="password" placeholder="SecurePass123" value="SecurePass123">
+                </div>
+                <button onclick="register()">📝 Register</button>
+                <button onclick="login()" style="margin-top: 10px;">🔑 Login</button>
+                <div id="authResponse" class="response" style="display:none;"></div>
+            </div>
+
+            <!-- Log Activity Section -->
+            <div class="card">
+                <h2>🏃 Log Activity</h2>
+                <div class="form-group">
+                    <label>Activity:</label>
+                    <select id="activitySlug">
+                        <option value="running">🏃 Running</option>
+                        <option value="cycling">🚴 Cycling</option>
+                        <option value="swimming">🏊 Swimming</option>
+                        <option value="workout">💪 Workout</option>
+                        <option value="walking">🚶 Walking</option>
+                        <option value="meditation">🧘 Meditation</option>
+                        <option value="reading">📚 Reading</option>
+                        <option value="focus_session">⏱️ Focus Session</option>
+                        <option value="deep_work">💼 Deep Work</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Value (units):</label>
+                    <input type="number" id="value" placeholder="5" value="5" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Intensity Input (optional):</label>
+                    <input type="number" id="intensityValue" placeholder="e.g., 6 for pace" value="6" step="0.1">
+                </div>
+                <button onclick="logActivity()">📊 Log Activity</button>
+                <div id="logResponse" class="response" style="display:none;"></div>
+            </div>
+
+            <!-- Get Logs Section -->
+            <div class="card">
+                <h2>📋 View Logs</h2>
+                <p style="color: #94a3b8; margin-bottom: 15px;">View your recent activity logs</p>
+                <button onclick="getLogs()">📖 Get My Logs</button>
+                <div id="logsResponse" class="response" style="display:none;"></div>
+            </div>
+
+            <!-- API Status Section -->
+            <div class="card">
+                <h2>🏥 Health Check</h2>
+                <p style="color: #94a3b8; margin-bottom: 15px;">Check API server status</p>
+                <button onclick="checkHealth()">🩺 Health Check</button>
+                <div id="healthResponse" class="response" style="display:none;"></div>
+            </div>
+        </div>
+
+        <div class="section-title">📖 API Documentation</div>
+        <div class="card">
+            <h2>Available Endpoints</h2>
+            <div style="line-height: 1.8;">
+                <p><strong>POST /auth/register</strong> - Create new account</p>
+                <p><strong>POST /auth/login</strong> - Login with email/password</p>
+                <p><strong>POST /logs</strong> - Log an activity (requires auth)</p>
+                <p><strong>GET /logs</strong> - Get your recent logs (requires auth)</p>
+                <p><strong>GET /health</strong> - Check API health</p>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px; color: #64748b; font-size: 0.9em;">
+            <p>LifeXP API v1.0.0 | Docker Edition</p>
+        </div>
+    </div>
+
+    <script>
+        let token = localStorage.getItem('lifexpToken');
+
+        // Check health on load
+        window.addEventListener('load', () => {
+            checkHealth();
+        });
+
+        async function checkHealth() {
+            try {
+                const response = await fetch('http://localhost:3000/health');
+                const data = await response.json();
+                showResponse('healthResponse', data, 'success');
+                updateStatus(true);
+            } catch (error) {
+                showResponse('healthResponse', { error: error.message }, 'error');
+                updateStatus(false);
+            }
+        }
+
+        async function register() {
+            const email = document.getElementById('email').value;
+            const username = document.getElementById('username').value || `user_${Date.now()}`;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('http://localhost:3000/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password })
+                });
+                const data = await response.json();
+
+                if (data.accessToken) {
+                    token = data.accessToken;
+                    localStorage.setItem('lifexpToken', token);
+                    showResponse('authResponse', {
+                        message: 'Registered successfully!',
+                        user: data.user.email
+                    }, 'success');
+                } else {
+                    showResponse('authResponse', data, 'error');
+                }
+            } catch (error) {
+                showResponse('authResponse', { error: error.message }, 'error');
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('http://localhost:3000/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await response.json();
+
+                if (data.accessToken) {
+                    token = data.accessToken;
+                    localStorage.setItem('lifexpToken', token);
+                    showResponse('authResponse', {
+                        message: 'Logged in successfully!',
+                        user: data.user.email
+                    }, 'success');
+                } else {
+                    showResponse('authResponse', data, 'error');
+                }
+            } catch (error) {
+                showResponse('authResponse', { error: error.message }, 'error');
+            }
+        }
+
+        async function logActivity() {
+            if (!token) {
+                showResponse('logResponse', { error: 'Please register or login first' }, 'error');
+                return;
+            }
+
+            const activitySlug = document.getElementById('activitySlug').value;
+            const value = parseInt(document.getElementById('value').value);
+            const intensityValue = parseFloat(document.getElementById('intensityValue').value);
+
+            const intensityInputs = {};
+            if (!isNaN(intensityValue)) {
+                if (activitySlug === 'running' || activitySlug === 'walking') {
+                    intensityInputs.pace_min_per_km = intensityValue;
+                } else if (activitySlug === 'cycling') {
+                    intensityInputs.avg_speed_kmh = intensityValue;
+                } else if (activitySlug === 'swimming') {
+                    intensityInputs.pace_per_100m_sec = intensityValue;
+                } else if (['focus_session', 'deep_work'].includes(activitySlug)) {
+                    intensityInputs.interruptions = intensityValue;
+                } else if (['reading', 'meditation'].includes(activitySlug)) {
+                    intensityInputs.quality_rating = intensityValue;
+                } else if (activitySlug === 'workout') {
+                    intensityInputs.rpe = intensityValue;
+                }
+            }
+
+            try {
+                const response = await fetch('http://localhost:3000/logs', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        activitySlug,
+                        value,
+                        intensityInputs: Object.keys(intensityInputs).length > 0 ? intensityInputs : undefined
+                    })
+                });
+                const data = await response.json();
+                showResponse('logResponse', {
+                    activity: activitySlug,
+                    value: value,
+                    xpBreakdown: data.xpBreakdown,
+                    levelUps: {
+                        activity: data.activityLevelUp?.new_level,
+                        section: data.sectionLevelUp?.new_level,
+                        hero: data.heroLevelUp?.new_level
+                    }
+                }, data.xpBreakdown ? 'success' : 'error');
+            } catch (error) {
+                showResponse('logResponse', { error: error.message }, 'error');
+            }
+        }
+
+        async function getLogs() {
+            if (!token) {
+                showResponse('logsResponse', { error: 'Please register or login first' }, 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('http://localhost:3000/logs', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                showResponse('logsResponse', {
+                    count: data.length,
+                    logs: data.slice(0, 5)
+                }, 'success');
+            } catch (error) {
+                showResponse('logsResponse', { error: error.message }, 'error');
+            }
+        }
+
+        function showResponse(elementId, data, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            element.className = `response ${type}`;
+            element.style.display = 'block';
+        }
+
+        function updateStatus(online) {
+            const indicator = document.getElementById('statusIndicator');
+            const text = document.getElementById('statusText');
+            if (online) {
+                indicator.classList.add('online');
+                text.textContent = '🟢 API is online and ready';
+                text.style.color = '#10b981';
+            } else {
+                indicator.classList.remove('online');
+                text.textContent = '🔴 API is offline - is Docker running?';
+                text.style.color = '#ef4444';
+            }
+        }
+    </script>
+</body>
+</html>
