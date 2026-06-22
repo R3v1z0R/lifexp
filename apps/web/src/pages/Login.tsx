@@ -3,6 +3,25 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { ApiError } from "../lib/api";
 
+// Playful sample hero handles (sport + education flavored) shown as the
+// username placeholder, picked at random each time the register form opens.
+const HERO_NAME_SAMPLES = [
+  "CaptainCardio",
+  "DeadliftDumbledore",
+  "Sir Sprints-a-Lot",
+  "ProfessorProcrastinate",
+  "QuizzlyBear",
+  "MarathonMcFly",
+  "Baron von Flashcard",
+  "The Burpee Bandit",
+  "Count Cramula",
+  "NeuronNinja",
+];
+
+function randomHeroName() {
+  return HERO_NAME_SAMPLES[Math.floor(Math.random() * HERO_NAME_SAMPLES.length)];
+}
+
 export function Login() {
   const { user, login, register } = useAuth();
   const navigate = useNavigate();
@@ -13,6 +32,7 @@ export function Login() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [heroPlaceholder, setHeroPlaceholder] = useState(randomHeroName);
 
   if (user) return <Navigate to="/" replace />;
 
@@ -24,6 +44,7 @@ export function Login() {
     setEmail("");
     setPassword("");
     setConfirm("");
+    if (next === "register") setHeroPlaceholder(randomHeroName());
   }
 
   async function onSubmit(e: FormEvent) {
@@ -72,6 +93,7 @@ export function Login() {
                 value={username}
                 onChange={setUsername}
                 autoComplete="username"
+                placeholder={heroPlaceholder}
                 required
               />
             )}
