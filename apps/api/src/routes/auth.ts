@@ -5,6 +5,13 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import type { AuthResponse, User } from "@lifexp/types";
 
+/** Strip secrets (password hash) from a user row before returning it to clients. */
+function sanitizeUser(row: Record<string, unknown>): User {
+  const { password_hash, ...safe } = row;
+  void password_hash;
+  return safe as unknown as User;
+}
+
 export async function authRoutes(app: FastifyInstance) {
   // POST /auth/register
   app.post<{ Body: { username: string; email: string; password: string } }>(
@@ -78,7 +85,7 @@ export async function authRoutes(app: FastifyInstance) {
       const response: AuthResponse = {
         accessToken,
         refreshToken,
-        user: newUser as any as User,
+        user: sanitizeUser(newUser),
       };
 
       reply.status(201).send(response);
@@ -142,7 +149,7 @@ export async function authRoutes(app: FastifyInstance) {
       const response: AuthResponse = {
         accessToken,
         refreshToken,
-        user: user as any as User,
+        user: sanitizeUser(user),
       };
 
       reply.send(response);
@@ -165,9 +172,12 @@ export async function authRoutes(app: FastifyInstance) {
           tokenId: string;
         };
 
-        const user = await db.query.users.findFirst({
-          where: eq(schema.users.id, payload.userId),
-        });
+        const usersFound = await db
+          .select()
+          .from(schema.users)
+          .where(eq(schema.users.id, payload.userId))
+          .limit(1);
+        const user = usersFound[0];
 
         if (!user) {
           return reply.status(401).send({ error: "User not found" });

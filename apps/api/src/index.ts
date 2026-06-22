@@ -1,3 +1,4 @@
+import "dotenv/config";
 import Fastify from "fastify";
 import fastifyJwt from "@fastify/jwt";
 import fastifyCors from "@fastify/cors";
@@ -6,10 +7,31 @@ import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUI from "@fastify/swagger-ui";
 import { authRoutes } from "./routes/auth";
 import { logsRoutes } from "./routes/logs";
+import { billingRoutes } from "./routes/billing";
+import { friendsRoutes } from "./routes/friends";
+import { goalsRoutes } from "./routes/goals";
+import { eventsRoutes } from "./routes/events";
+import { adminRoutes } from "./routes/admin";
 
 const app = Fastify({
   logger: true,
 });
+
+// Keep the raw request body available on every request while still parsing JSON.
+// Stripe webhook signature verification is computed over the raw bytes.
+app.addContentTypeParser(
+  "application/json",
+  { parseAs: "buffer" },
+  (req, body, done) => {
+    (req as any).rawBody = body;
+    try {
+      const json = body.length ? JSON.parse(body.toString("utf8")) : {};
+      done(null, json);
+    } catch (err) {
+      done(err as Error, undefined);
+    }
+  }
+);
 
 // Plugins
 app.register(fastifyJwt, {
@@ -59,6 +81,11 @@ app.register(fastifySwaggerUI, {
 // Routes
 app.register(authRoutes);
 app.register(logsRoutes);
+app.register(billingRoutes);
+app.register(friendsRoutes);
+app.register(goalsRoutes);
+app.register(eventsRoutes);
+app.register(adminRoutes);
 
 // Health check
 app.get("/health", async (request, reply) => {
