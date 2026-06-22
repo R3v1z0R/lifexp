@@ -54,7 +54,7 @@ export const api = {
   register: (body: { username: string; email: string; password: string }) =>
     request<AuthResult>("/auth/register", { method: "POST", body: JSON.stringify(body) }),
 
-  login: (body: { email: string; password: string }) =>
+  login: (body: { identifier: string; password: string }) =>
     request<AuthResult>("/auth/login", { method: "POST", body: JSON.stringify(body) }),
 
   me: () => request<{ user: User; sections: UserSection[] }>("/me"),

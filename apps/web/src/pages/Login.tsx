@@ -98,12 +98,12 @@ export function Login() {
               />
             )}
             <Field
-              label="Email"
-              type="email"
+              label={mode === "register" ? "Email" : "Email or username"}
+              type={mode === "register" ? "email" : "text"}
               value={email}
               onChange={setEmail}
-              autoComplete="email"
-              placeholder="example@example.com"
+              autoComplete={mode === "register" ? "email" : "username"}
+              placeholder={mode === "register" ? "example@example.com" : undefined}
               required
             />
             <Field
