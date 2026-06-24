@@ -6,7 +6,7 @@ import { api, ApiError, type LogResponse } from "../lib/api";
 import { AppBar } from "../components/AppBar";
 
 export function LogActivity() {
-  const { user, refresh } = useAuth();
+  const { refresh } = useAuth();
   const queryClient = useQueryClient();
 
   const activitiesQuery = useQuery({ queryKey: ["activities"], queryFn: api.activities });
@@ -59,7 +59,7 @@ export function LogActivity() {
 
   return (
     <div className="mx-auto min-h-screen max-w-2xl px-5 pb-20">
-      <AppBar username={user!.username} />
+      <AppBar />
 
       <div className="mt-6 flex items-center gap-3">
         <Link to="/" className="text-sm text-muted transition hover:text-ink">

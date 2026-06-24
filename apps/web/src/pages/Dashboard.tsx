@@ -20,7 +20,7 @@ export function Dashboard() {
 
   return (
     <div className="mx-auto min-h-screen max-w-5xl px-5 pb-20">
-      <AppBar username={hero.username} />
+      <AppBar />
 
       {/* Hero banner — the character sheet header */}
       <section className="panel mt-6 flex flex-col items-center gap-7 p-6 sm:flex-row sm:items-center sm:gap-9 sm:p-8">

@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest } from "fastify";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, and, ne, ilike } from "drizzle-orm";
 import { authenticate } from "../middleware/auth";
 import { db } from "../db";
 import * as schema from "../db/schema";
@@ -38,6 +38,28 @@ export async function catalogRoutes(app: FastifyInstance) {
         .from(schema.activity_intensity_configs)
         .where(eq(schema.activity_intensity_configs.activity_slug, request.params.slug));
       return { configs };
+    }
+  );
+
+  // GET /users/search?q= — find users by username (for friend requests)
+  app.get<{ Querystring: { q?: string } }>(
+    "/users/search",
+    { preHandler: authenticate },
+    async (request, reply) => {
+      const me = (request.user as any).userId as string;
+      const q = (request.query.q ?? "").trim();
+      if (q.length < 2) return reply.send({ users: [] });
+
+      const users = await db
+        .select({
+          id: schema.users.id,
+          username: schema.users.username,
+          hero_level: schema.users.hero_level,
+        })
+        .from(schema.users)
+        .where(and(ilike(schema.users.username, `%${q}%`), ne(schema.users.id, me)))
+        .limit(10);
+      return reply.send({ users });
     }
   );
 
