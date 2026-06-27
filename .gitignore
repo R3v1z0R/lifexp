@@ -16,3 +16,4 @@ coverage/
 .pnpm-debug.log*
 .pnpm-store/
 .claude/
+.playwright-mcp/

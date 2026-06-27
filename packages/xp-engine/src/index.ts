@@ -317,6 +317,7 @@ export function getPerkChoices(
   level: number,
   catalogue: Perk[]
 ): PerkChoiceResult | null {
+  void level; // reserved for future level-scaled perk pools; kept in the signature
   const relevant = catalogue.filter(
     (p) =>
       p.trigger_type === triggerType &&

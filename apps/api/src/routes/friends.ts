@@ -123,6 +123,29 @@ export async function friendsRoutes(app: FastifyInstance) {
     }
   );
 
+  // GET /friends/requests — pending requests addressed to me
+  app.get("/friends/requests", { preHandler: authenticate }, async (request, reply) => {
+    const me = (request.user as any).userId as string;
+    const requests = await db
+      .select({
+        id: schema.friendships.id,
+        requester_id: schema.friendships.requester_id,
+        username: schema.users.username,
+        hero_level: schema.users.hero_level,
+        created_at: schema.friendships.created_at,
+      })
+      .from(schema.friendships)
+      .innerJoin(schema.users, eq(schema.users.id, schema.friendships.requester_id))
+      .where(
+        and(
+          eq(schema.friendships.addressee_id, me),
+          eq(schema.friendships.status, "pending")
+        )
+      )
+      .orderBy(desc(schema.friendships.created_at));
+    return reply.send({ requests });
+  });
+
   // GET /friends — list accepted friends
   app.get("/friends", { preHandler: authenticate }, async (request, reply) => {
     const me = (request.user as any).userId as string;

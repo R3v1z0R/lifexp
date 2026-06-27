@@ -1,7 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { db } from "../db";
 import * as schema from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import type { AuthResponse, User } from "@lifexp/types";
 
@@ -92,20 +92,21 @@ export async function authRoutes(app: FastifyInstance) {
     }
   );
 
-  // POST /auth/login
-  app.post<{ Body: { email: string; password: string } }>(
+  // POST /auth/login — identifier may be an email or a username
+  app.post<{ Body: { identifier?: string; email?: string; password: string } }>(
     "/auth/login",
     async (request, reply) => {
-      const { email, password } = request.body;
+      const { identifier, email, password } = request.body;
+      const login = identifier ?? email; // `email` kept for backward compatibility
 
-      if (!email || !password) {
-        return reply.status(400).send({ error: "Missing email or password" });
+      if (!login || !password) {
+        return reply.status(400).send({ error: "Missing credentials" });
       }
 
       const users = await db
         .select()
         .from(schema.users)
-        .where(eq(schema.users.email, email))
+        .where(or(eq(schema.users.email, login), eq(schema.users.username, login)))
         .limit(1);
 
       const user = users[0];
