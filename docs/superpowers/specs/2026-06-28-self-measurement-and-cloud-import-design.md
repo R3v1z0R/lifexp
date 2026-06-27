@@ -194,7 +194,8 @@ All under an `integrations` + `imports` route group. Connect/sync routes carry `
 ## 10. Entitlements
 
 - New `Feature.CLOUD_IMPORT` in the entitlement enum; granted to Pro/Team.
-- `requireEntitlement(CLOUD_IMPORT)` preHandler on all `/integrations/*` and `/imports/*` routes (sync + review are part of the paid feature; a denied call returns 403 + `upgrade_url`, consistent with existing behavior).
+- `requireEntitlement(CLOUD_IMPORT)` preHandler on the **data-acquiring** routes only: `/integrations/:provider/connect`, `/integrations/:provider/callback`, and `/integrations/:provider/sync`. A denied call returns 403 + `upgrade_url`, consistent with existing behavior.
+- **The review inbox is free**: `GET /imports`, `POST /imports/:id/accept`, `POST /imports/accept`, and `POST /imports/:id/dismiss` require **no** entitlement. A free user simply has nothing to connect, so the queue is empty; a user who downgrades from Pro can still view and clear (accept/dismiss) imports they already pulled. Disconnect is likewise free.
 - Timers require no entitlement.
 
 ---
