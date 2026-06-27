@@ -1,0 +1,37 @@
+{
+  "projectId": "7d86c0c0-cbf9-4895-9fe5-048561ff55b8",
+  "shape": "package",
+  "pkg": "@lifexp/web",
+  "globalName": "LifeXP",
+  "entry": "apps/web/.ds-entry.mjs",
+  "cssEntry": ".ds-compiled.css",
+  "extraFonts": ["../../.design-sync/fonts/brand-fonts.css"],
+  "buildCmd": "pnpm --filter @lifexp/web exec vite build && cp apps/web/dist/assets/index-*.css apps/web/.ds-compiled.css",
+  "extraEntries": ["./.ds-theme.jsx"],
+  "provider": { "component": "DsTheme" },
+  "readmeHeader": ".design-sync/conventions.md",
+  "overrides": {
+    "Page": { "cardMode": "single", "primaryStory": "CommandCenter" },
+    "SectionTitle": { "cardMode": "column" },
+    "Panel": { "cardMode": "column" },
+    "EmptyHint": { "cardMode": "column" },
+    "ErrorText": { "cardMode": "column" },
+    "Labeled": { "cardMode": "column" },
+    "TextInput": { "cardMode": "column" },
+    "Select": { "cardMode": "column" }
+  },
+  "componentSrcMap": {
+    "XpRing": "src/components/XpRing.tsx",
+    "Page": "src/components/ui.tsx",
+    "SectionTitle": "src/components/ui.tsx",
+    "Panel": "src/components/ui.tsx",
+    "EmptyHint": "src/components/ui.tsx",
+    "PrimaryButton": "src/components/ui.tsx",
+    "GhostButton": "src/components/ui.tsx",
+    "ErrorText": "src/components/ui.tsx",
+    "Badge": "src/components/ui.tsx",
+    "TextInput": "src/components/ui.tsx",
+    "Select": "src/components/ui.tsx",
+    "Labeled": "src/components/ui.tsx"
+  }
+}

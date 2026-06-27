@@ -18,9 +18,12 @@ coverage/
 .claude/
 .playwright-mcp/
 
-# Design-sync / build tooling outputs
+# design-sync (claude.ai/design) — staged scripts, build output, machine state
 .ds-sync/
 ds-bundle/
 .ds-compiled.css
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
 dev-dist/
 .mcp.json
