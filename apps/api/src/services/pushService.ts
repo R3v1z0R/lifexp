@@ -1,4 +1,7 @@
 import type { LevelUpEvent } from "@lifexp/types";
+import { db } from "../db";
+import { device_tokens } from "../db/schema";
+import { eq, inArray } from "drizzle-orm";
 
 export interface ExpoPushMessage {
   to: string;
@@ -67,4 +70,42 @@ export async function sendPush(messages: ExpoPushMessage[]): Promise<{ invalidTo
     });
   }
   return { invalidTokens };
+}
+
+const SCOPE_RANK: Record<LevelUpEvent["scope"], number> = { hero: 3, section: 2, activity: 1 };
+
+export async function dispatchPush(input: {
+  userId: string;
+  levelUps: LevelUpEvent[];
+  perkChoiceCount: number;
+}): Promise<void> {
+  try {
+    const { userId, levelUps, perkChoiceCount } = input;
+    if (levelUps.length === 0 && perkChoiceCount === 0) return;
+
+    const rows = await db
+      .select({ token: device_tokens.expo_push_token })
+      .from(device_tokens)
+      .where(eq(device_tokens.user_id, userId));
+    if (rows.length === 0) return;
+
+    const topLevelUp =
+      levelUps.length > 0
+        ? [...levelUps].sort((a, b) => SCOPE_RANK[b.scope] - SCOPE_RANK[a.scope])[0]
+        : null;
+
+    const messages = rows.flatMap(({ token }) => {
+      const msgs = [];
+      if (topLevelUp) msgs.push(buildLevelUpPush(token, topLevelUp));
+      if (perkChoiceCount > 0) msgs.push(buildPerkChoicePush(token, perkChoiceCount));
+      return msgs;
+    });
+
+    const { invalidTokens } = await sendPush(messages);
+    if (invalidTokens.length > 0) {
+      await db.delete(device_tokens).where(inArray(device_tokens.expo_push_token, invalidTokens));
+    }
+  } catch (err) {
+    console.error("dispatchPush failed (non-fatal):", err);
+  }
 }

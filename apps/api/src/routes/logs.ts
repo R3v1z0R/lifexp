@@ -1,6 +1,8 @@
 import { FastifyInstance, FastifyRequest } from "fastify";
 import { authenticate } from "../middleware/auth";
 import { logActivity } from "../services/logService";
+import { dispatchPush } from "../services/pushService";
+import type { LevelUpEvent } from "@lifexp/types";
 import { db } from "../db";
 import * as schema from "../db/schema";
 import { eq, desc } from "drizzle-orm";
@@ -44,6 +46,17 @@ export async function logsRoutes(app: FastifyInstance) {
         });
 
         reply.send(result);
+
+        // Fire-and-forget: notify devices of level-ups / perk choices. Never awaited,
+        // never blocks the response, never throws into the request lifecycle.
+        const levelUps = [result.heroLevelUp, result.sectionLevelUp, result.activityLevelUp].filter(
+          (l): l is LevelUpEvent => l != null
+        );
+        void dispatchPush({
+          userId: user.userId,
+          levelUps,
+          perkChoiceCount: result.pendingPerkChoices?.length ?? 0,
+        });
       } catch (error) {
         console.error("Log error:", error);
         reply.status(400).send({ error: (error as Error).message });
