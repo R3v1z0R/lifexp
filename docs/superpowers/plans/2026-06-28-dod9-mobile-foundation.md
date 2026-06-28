@@ -1350,7 +1350,7 @@ import { View, StyleSheet } from "react-native";
 import { colors, radii } from "../theme";
 
 export function XpBar({ value, max }: { value: number; max: number }) {
-  const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
+  const pct = max > 0 ? Math.min(100, Math.max(0, Math.round((value / max) * 100))) : 0;
   return (
     <View style={styles.track}>
       <View style={[styles.fill, { width: `${pct}%` }]} />
@@ -1389,7 +1389,7 @@ export function XpRing({ level, pct }: { level: number; pct: number }) {
           stroke={colors.xp}
           strokeWidth={stroke}
           fill="none"
-          strokelinecap="round"
+          strokeLinecap="round"
           strokeDasharray={`${dash} ${circ}`}
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
