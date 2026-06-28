@@ -9,6 +9,7 @@ import {
 import { Inter_400Regular, Inter_600SemiBold } from "@expo-google-fonts/inter";
 import { JetBrainsMono_700Bold } from "@expo-google-fonts/jetbrains-mono";
 import { AuthProvider, useAuth } from "../lib/auth";
+import { initDb } from "../lib/track/db";
 import { queryClient } from "../lib/queryClient";
 import { colors } from "../theme";
 
@@ -41,6 +42,13 @@ export default function RootLayout() {
     Inter_600SemiBold,
     JetBrainsMono_700Bold,
   });
+
+  useEffect(() => {
+    initDb().catch(() => {
+      // DB init failure: the Track tab will surface errors on use; app still runs.
+    });
+  }, []);
+
   if (!fontsLoaded) {
     return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
   }
