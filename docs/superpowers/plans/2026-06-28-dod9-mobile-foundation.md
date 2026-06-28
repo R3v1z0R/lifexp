@@ -43,9 +43,11 @@
 - `src/lib/queryClient.ts` — *new*, single QueryClient.
 - `src/components/` — *new*: `Screen.tsx`, `Card.tsx`, `Button.tsx`, `Field.tsx`, `XpBar.tsx`, `XpRing.tsx`.
 - `src/lib/push.ts` — *new*, expo-notifications register/unregister helpers.
-- `app/_layout.tsx` — *modify*, providers + auth gate.
-- `app/(auth)/login.tsx`, `app/(auth)/register.tsx` — *new*.
-- `app/(tabs)/_layout.tsx`, `app/(tabs)/index.tsx` (Home), `app/(tabs)/log.tsx`, `app/(tabs)/profile.tsx` — *new*.
+- `src/app/_layout.tsx` — *modify*, providers + auth gate.
+- `src/app/(auth)/login.tsx`, `src/app/(auth)/register.tsx` — *new*.
+- `src/app/(tabs)/_layout.tsx`, `src/app/(tabs)/index.tsx` (Home), `src/app/(tabs)/log.tsx`, `src/app/(tabs)/profile.tsx` — *new*.
+
+> **Router root note (post-scaffold reality):** Expo SDK 56's template uses **`src/app/`** as the Expo Router root (not project-root `app/`). All route files live under `apps/mobile/src/app/...`, so relative imports into `src/lib`, `src/components`, `src/theme` use `../` (from `src/app/`) and `../../` (from `src/app/(auth|tabs)/`). The scaffold also left demo files (`src/app/index.tsx`, `src/app/explore.tsx`, demo components under `src/components/`, `src/constants/theme.ts`, `src/hooks/`); Tasks 7–8 overwrite `src/app/_layout.tsx` and add the real routes — delete leftover demo route/component files they replace.
 
 ---
 
@@ -707,8 +709,16 @@ module.exports = {
   preset: "jest-expo",
   setupFiles: ["<rootDir>/jest.setup.js"],
   testMatch: ["**/*.test.ts", "**/*.test.tsx"],
+  // Guard for any future VALUE import of the shared package (current imports
+  // are type-only and erased at runtime, but this keeps jest correct if that
+  // changes). The package ships source only, so map to its src entry.
+  moduleNameMapper: {
+    "^@lifexp/types$": "<rootDir>/../../packages/types/src/index.ts",
+  },
 };
 ```
+
+> Resolution note (already wired in Task 5's `metro.config.js` + `tsconfig.json`): `@lifexp/types` resolves to `packages/types/src` via a Metro `resolveRequest` alias and a `tsconfig` path. Do NOT add `@lifexp/types` to `apps/mobile/package.json` dependencies — a `workspace:*` symlink would let Metro resolve the package's broken `main` (`./dist`, which does not exist) before the alias. Imports stay `import type {...}` where possible.
 
 - [ ] **Step 3: Create `apps/mobile/jest.setup.js`** (in-memory SecureStore mock)
 
@@ -958,9 +968,9 @@ git commit -m "feat(mobile): API client with SecureStore tokens + single-flight 
 **Files:**
 - Create: `apps/mobile/src/lib/auth.tsx`
 - Create: `apps/mobile/src/lib/queryClient.ts`
-- Modify: `apps/mobile/app/_layout.tsx`
-- Create: `apps/mobile/app/(auth)/login.tsx`
-- Create: `apps/mobile/app/(auth)/register.tsx`
+- Modify: `apps/mobile/src/app/_layout.tsx`
+- Create: `apps/mobile/src/app/(auth)/login.tsx`
+- Create: `apps/mobile/src/app/(auth)/register.tsx`
 
 **Interfaces:**
 - Consumes: `api`, `tokenStore`, `ApiError` (Task 6); `colors/spacing/radii/fonts` (Task 5).
@@ -1055,7 +1065,7 @@ export function useAuth() {
 }
 ```
 
-- [ ] **Step 3: Wire providers + auth gate** — replace `apps/mobile/app/_layout.tsx`
+- [ ] **Step 3: Wire providers + auth gate** — replace `apps/mobile/src/app/_layout.tsx`
 
 ```tsx
 import { useEffect } from "react";
@@ -1068,9 +1078,9 @@ import {
 } from "@expo-google-fonts/space-grotesk";
 import { Inter_400Regular, Inter_600SemiBold } from "@expo-google-fonts/inter";
 import { JetBrainsMono_700Bold } from "@expo-google-fonts/jetbrains-mono";
-import { AuthProvider, useAuth } from "../src/lib/auth";
-import { queryClient } from "../src/lib/queryClient";
-import { colors } from "../src/theme";
+import { AuthProvider, useAuth } from "../lib/auth";
+import { queryClient } from "../lib/queryClient";
+import { colors } from "../theme";
 
 function Gate() {
   const { status } = useAuth();
@@ -1114,15 +1124,15 @@ export default function RootLayout() {
 }
 ```
 
-- [ ] **Step 4: Login screen** — `apps/mobile/app/(auth)/login.tsx`
+- [ ] **Step 4: Login screen** — `apps/mobile/src/app/(auth)/login.tsx`
 
 ```tsx
 import { useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { Link } from "expo-router";
-import { useAuth } from "../../src/lib/auth";
-import { ApiError } from "../../src/lib/api";
-import { colors, spacing, radii, fonts } from "../../src/theme";
+import { useAuth } from "../../lib/auth";
+import { ApiError } from "../../lib/api";
+import { colors, spacing, radii, fonts } from "../../theme";
 
 export default function Login() {
   const { login } = useAuth();
@@ -1186,15 +1196,15 @@ const styles = StyleSheet.create({
 });
 ```
 
-- [ ] **Step 5: Register screen** — `apps/mobile/app/(auth)/register.tsx`
+- [ ] **Step 5: Register screen** — `apps/mobile/src/app/(auth)/register.tsx`
 
 ```tsx
 import { useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { Link } from "expo-router";
-import { useAuth } from "../../src/lib/auth";
-import { ApiError } from "../../src/lib/api";
-import { colors, spacing, radii, fonts } from "../../src/theme";
+import { useAuth } from "../../lib/auth";
+import { ApiError } from "../../lib/api";
+import { colors, spacing, radii, fonts } from "../../theme";
 
 export default function Register() {
   const { register } = useAuth();
@@ -1262,7 +1272,7 @@ Start the API (`cd apps/api && PORT=3000 pnpm dev`) and the app (`cd apps/mobile
 - [ ] **Step 7: Commit**
 
 ```bash
-git add apps/mobile/src/lib/auth.tsx apps/mobile/src/lib/queryClient.ts apps/mobile/app/_layout.tsx "apps/mobile/app/(auth)"
+git add apps/mobile/src/lib/auth.tsx apps/mobile/src/lib/queryClient.ts apps/mobile/src/app/_layout.tsx "apps/mobile/src/app/(auth)"
 git commit -m "feat(mobile): auth context, routing gate, login + register screens"
 ```
 
@@ -1272,8 +1282,8 @@ git commit -m "feat(mobile): auth context, routing gate, login + register screen
 
 **Files:**
 - Create: `apps/mobile/src/components/Screen.tsx`, `Card.tsx`, `XpBar.tsx`, `XpRing.tsx`
-- Create: `apps/mobile/app/(tabs)/_layout.tsx`
-- Create: `apps/mobile/app/(tabs)/index.tsx`
+- Create: `apps/mobile/src/app/(tabs)/_layout.tsx`
+- Create: `apps/mobile/src/app/(tabs)/index.tsx`
 
 **Interfaces:**
 - Consumes: `api.me`, `api.logs` (Task 6); theme (Task 5).
@@ -1393,11 +1403,11 @@ const styles = StyleSheet.create({
 });
 ```
 
-- [ ] **Step 5: Tabs layout** — `apps/mobile/app/(tabs)/_layout.tsx`
+- [ ] **Step 5: Tabs layout** — `apps/mobile/src/app/(tabs)/_layout.tsx`
 
 ```tsx
 import { Tabs } from "expo-router";
-import { colors } from "../../src/theme";
+import { colors } from "../../theme";
 
 export default function TabsLayout() {
   return (
@@ -1417,18 +1427,18 @@ export default function TabsLayout() {
 }
 ```
 
-- [ ] **Step 6: Home screen** — `apps/mobile/app/(tabs)/index.tsx`
+- [ ] **Step 6: Home screen** — `apps/mobile/src/app/(tabs)/index.tsx`
 
 ```tsx
 import { Text, StyleSheet, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../../src/lib/api";
-import { useAuth } from "../../src/lib/auth";
-import { Screen } from "../../src/components/Screen";
-import { Card } from "../../src/components/Card";
-import { XpRing } from "../../src/components/XpRing";
-import { XpBar } from "../../src/components/XpBar";
-import { colors, fonts, spacing } from "../../src/theme";
+import { api } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
+import { Screen } from "../../components/Screen";
+import { Card } from "../../components/Card";
+import { XpRing } from "../../components/XpRing";
+import { XpBar } from "../../components/XpBar";
+import { colors, fonts, spacing } from "../../theme";
 
 function xpToNext(level: number) {
   return Math.floor(50 * Math.pow(level, 1.6));
@@ -1498,7 +1508,7 @@ With API + app running and a logged-in user: Home shows the hero ring with the c
 - [ ] **Step 9: Commit**
 
 ```bash
-git add apps/mobile/src/components "apps/mobile/app/(tabs)/_layout.tsx" "apps/mobile/app/(tabs)/index.tsx" apps/mobile/package.json pnpm-lock.yaml
+git add apps/mobile/src/components "apps/mobile/src/app/(tabs)/_layout.tsx" "apps/mobile/src/app/(tabs)/index.tsx" apps/mobile/package.json pnpm-lock.yaml
 git commit -m "feat(mobile): UI primitives + Home dashboard (hero ring, XP bar, recent logs)"
 ```
 
@@ -1507,22 +1517,22 @@ git commit -m "feat(mobile): UI primitives + Home dashboard (hero ring, XP bar, 
 ### Task 9: Log activity screen
 
 **Files:**
-- Create: `apps/mobile/app/(tabs)/log.tsx`
+- Create: `apps/mobile/src/app/(tabs)/log.tsx`
 
 **Interfaces:**
 - Consumes: `api.activities`, `api.intensity`, `api.createLog` (Task 6); `useAuth().refreshMe`; theme + primitives.
 
-- [ ] **Step 1: Build the Log screen** — `apps/mobile/app/(tabs)/log.tsx`
+- [ ] **Step 1: Build the Log screen** — `apps/mobile/src/app/(tabs)/log.tsx`
 
 ```tsx
 import { useMemo, useState } from "react";
 import { Text, TextInput, Pressable, StyleSheet, View } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, ApiError, type LogResponse } from "../../src/lib/api";
-import { useAuth } from "../../src/lib/auth";
-import { Screen } from "../../src/components/Screen";
-import { Card } from "../../src/components/Card";
-import { colors, fonts, spacing, radii } from "../../src/theme";
+import { api, ApiError, type LogResponse } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
+import { Screen } from "../../components/Screen";
+import { Card } from "../../components/Card";
+import { colors, fonts, spacing, radii } from "../../theme";
 
 export default function Log() {
   const { refreshMe } = useAuth();
@@ -1673,7 +1683,7 @@ With API + app running and a logged-in user: pick an activity chip → enter a v
 - [ ] **Step 3: Commit**
 
 ```bash
-git add "apps/mobile/app/(tabs)/log.tsx"
+git add "apps/mobile/src/app/(tabs)/log.tsx"
 git commit -m "feat(mobile): log activity screen with intensity inputs + XP breakdown"
 ```
 
@@ -1683,7 +1693,7 @@ git commit -m "feat(mobile): log activity screen with intensity inputs + XP brea
 
 **Files:**
 - Create: `apps/mobile/src/lib/push.ts`
-- Create: `apps/mobile/app/(tabs)/profile.tsx`
+- Create: `apps/mobile/src/app/(tabs)/profile.tsx`
 - Modify: `apps/mobile/app.json` (notifications plugin + EAS projectId placeholder)
 
 **Interfaces:**
@@ -1738,18 +1748,18 @@ export async function registerForPush(): Promise<string | null> {
 }
 ```
 
-- [ ] **Step 2: Profile screen** — `apps/mobile/app/(tabs)/profile.tsx`
+- [ ] **Step 2: Profile screen** — `apps/mobile/src/app/(tabs)/profile.tsx`
 
 ```tsx
 import { useEffect, useState } from "react";
 import { Text, StyleSheet, Pressable, Switch, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../../src/lib/api";
-import { useAuth } from "../../src/lib/auth";
-import { registerForPush, getStoredPushToken } from "../../src/lib/push";
-import { Screen } from "../../src/components/Screen";
-import { Card } from "../../src/components/Card";
-import { colors, fonts, spacing, radii } from "../../src/theme";
+import { api } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
+import { registerForPush, getStoredPushToken } from "../../lib/push";
+import { Screen } from "../../components/Screen";
+import { Card } from "../../components/Card";
+import { colors, fonts, spacing, radii } from "../../theme";
 
 export default function Profile() {
   const { user, logout } = useAuth();
@@ -1850,7 +1860,7 @@ This cannot be done in Expo Go on current SDKs. On a real device with a dev buil
 - [ ] **Step 6: Commit**
 
 ```bash
-git add apps/mobile/src/lib/push.ts "apps/mobile/app/(tabs)/profile.tsx" apps/mobile/app.json
+git add apps/mobile/src/lib/push.ts "apps/mobile/src/app/(tabs)/profile.tsx" apps/mobile/app.json
 git commit -m "feat(mobile): profile screen + expo push registration + sign out"
 ```
 
@@ -1881,4 +1891,4 @@ git commit -m "feat(mobile): profile screen + expo push registration + sign out"
 1. **Push dispatch is fire-and-forget from the route**, not BullMQ — the repo declares `bullmq` but runs no worker. Spec already updated to match (decisions table + §5). Factored as `dispatchPush` so it can move behind a queue later.
 2. **`device_tokens` upsert + the full device push path are manually verified** (curl/psql + a dev-build device checklist), because the repo has no DB test harness and Expo Go can't receive push on current SDKs. The pure logic (payload builders, `sendPush` chunking/pruning, the api refresh coordinator) **is** covered by automated tests.
 3. **`apps/api` gains Vitest** (it had no test runner); **`apps/mobile` uses jest-expo** for its one logic test.
-4. **Root `.npmrc` `node-linker=hoisted`** is added so Expo/Metro resolves under pnpm. This changes dependency layout repo-wide; Task 5 Step 2 verifies `apps/api` and `apps/web` still build after the switch.
+4. **React 19 unification (supersedes the planned `.npmrc node-linker=hoisted`).** Expo SDK 56 requires React 19, but `apps/web` was React 18; in one pnpm workspace this broke web's `tsc` via duplicate `@types/react` (19 leaking into web's typecheck). The `node-linker=hoisted` idea made it worse (it forces a single shared `@types/react`, which can't satisfy web@18 + mobile@19). **Resolution (user-approved):** upgrade `apps/web` to React 19 (`react`/`react-dom`/`@types/*` @19, `react-router-dom` 6.30; `App.tsx` imports the `JSX` type from `react` since React 19 dropped the global `JSX` namespace). No `.npmrc`/linker override is used — **default isolated pnpm works**, with Metro keeping **hierarchical lookup ON** (do NOT set `disableHierarchicalLookup`) so it resolves deps in pnpm's `.pnpm` store. Verified headlessly: `apps/web` build, `apps/api` build, and `expo export` (mobile bundle) all pass. Device boot remains a deferred manual step.
