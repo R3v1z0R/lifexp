@@ -28,6 +28,7 @@ export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
     super(message);
+    this.name = "ApiError";
     this.status = status;
   }
 }
@@ -38,21 +39,27 @@ let refreshPromise: Promise<boolean> | null = null;
 async function doRefresh(): Promise<boolean> {
   if (!refreshPromise) {
     refreshPromise = (async () => {
-      const refreshToken = await tokenStore.getRefresh();
-      if (!refreshToken) return false;
-      const res = await fetch(`${API_URL}/auth/refresh`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken }),
-      });
-      if (!res.ok) return false;
-      const text = await res.text();
-      const data = text ? JSON.parse(text) : null;
-      if (!data?.accessToken) return false;
-      // The API's /auth/refresh returns ONLY a new access token; the refresh
-      // token is non-rotating, so we keep the existing one in storage.
-      await tokenStore.setTokens(data.accessToken, refreshToken);
-      return true;
+      try {
+        const refreshToken = await tokenStore.getRefresh();
+        if (!refreshToken) return false;
+        const res = await fetch(`${API_URL}/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken }),
+        });
+        if (!res.ok) return false;
+        const text = await res.text();
+        const data = text ? JSON.parse(text) : null;
+        if (!data?.accessToken) return false;
+        // The API's /auth/refresh returns ONLY a new access token; the refresh
+        // token is non-rotating, so we keep the existing one in storage.
+        await tokenStore.setTokens(data.accessToken, refreshToken);
+        return true;
+      } catch {
+        // Network/parse failure during refresh is treated as a failed refresh:
+        // request() will clear tokens and surface ApiError(401), not a raw throw.
+        return false;
+      }
     })().finally(() => {
       refreshPromise = null;
     });

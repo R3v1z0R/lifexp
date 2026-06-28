@@ -51,7 +51,8 @@ describe("request refresh-on-401", () => {
   it("shares a single refresh across concurrent 401s", async () => {
     const fetchMock = jest.fn().mockImplementation(async (url: string) => {
       if (url.endsWith("/auth/refresh")) return jsonResponse(200, { accessToken: "access-new" });
-      // first time each protected call is hit it 401s, then succeeds with new token
+      // Protected paths keep returning 401 here; both calls ultimately reject.
+      // What we assert is that the shared in-flight refresh fires only ONCE.
       return jsonResponse(401, { error: "Unauthorized" });
     });
     global.fetch = fetchMock as any;
@@ -60,5 +61,17 @@ describe("request refresh-on-401", () => {
     await Promise.allSettled([api.me(), api.activities()]);
     const refreshCalls = fetchMock.mock.calls.filter((c: any[]) => String(c[0]).endsWith("/auth/refresh"));
     expect(refreshCalls.length).toBe(1);
+  });
+
+  it("logs out when the refresh request itself throws (network error)", async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(401, { error: "Unauthorized" }))
+      .mockRejectedValueOnce(new Error("network down"));
+    global.fetch = fetchMock as any;
+
+    await expect(api.me()).rejects.toBeInstanceOf(ApiError);
+    expect(await tokenStore.getAccess()).toBeNull();
+    expect(await tokenStore.getRefresh()).toBeNull();
   });
 });
