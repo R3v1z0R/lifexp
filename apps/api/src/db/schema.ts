@@ -20,6 +20,7 @@ export const visibilityEnum = pgEnum("visibility", ["public", "friends", "privat
 export const perkChoiceStatusEnum = pgEnum("perk_choice_status", ["pending", "chosen", "auto_resolved"]);
 export const streakScopeEnum = pgEnum("streak_scope", ["activity", "section"]);
 export const eventStatusEnum = pgEnum("event_status", ["upcoming", "ongoing", "completed"]);
+export const platformEnum = pgEnum("device_platform", ["ios", "android"]);
 
 // Users
 export const users = pgTable(
@@ -54,6 +55,22 @@ export const user_settings = pgTable("user_settings", {
   notifications_enabled: boolean("notifications_enabled").default(true).notNull(),
   timezone: varchar("timezone").default("UTC").notNull(),
 });
+
+export const device_tokens = pgTable(
+  "device_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    expo_push_token: varchar("expo_push_token").notNull().unique(),
+    platform: platformEnum("platform").notNull(),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+    last_seen_at: timestamp("last_seen_at").defaultNow().notNull(),
+  }
+  // `expo_push_token` is unique via the column-level .unique() above; no second
+  // unique index needed (a redundant one would create two indexes on db:push).
+);
 
 export const refresh_tokens = pgTable(
   "refresh_tokens",

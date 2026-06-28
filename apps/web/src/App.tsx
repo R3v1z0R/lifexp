@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./lib/auth";
 import { Login } from "./pages/Login";
