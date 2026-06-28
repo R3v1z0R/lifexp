@@ -35,7 +35,7 @@ The mobile app is a **client of the existing API**. It introduces **no XP, level
 | Session | Auto-refresh on `401` via existing `POST /auth/refresh`; on failure → clear + Login. |
 | Server state | **TanStack Query** (same pattern as web). |
 | API client | Mobile-local `src/lib/api.ts` mirroring web; reuse `@lifexp/types`. No shared `api-client` package extraction this wave. |
-| Push dispatch | Enqueued on the **existing BullMQ** infra **post-commit**, not inline in the request path. |
+| Push dispatch | **Fire-and-forget** async dispatch from the logs route **post-response**, not awaited in the request path. (The repo declares BullMQ but wires no running worker, so no queue is stood up for this wave; the dispatch is structured so it can move onto BullMQ later.) |
 
 ---
 
@@ -88,7 +88,7 @@ The mobile app is a **client of the existing API**. It introduces **no XP, level
 - **`pushService`** (`apps/api/src/services/pushService.ts`):
   - `buildLevelUpPush(event)` / `buildPerkChoicePush(choice)` — **pure** payload builders (`{ to, title, body, data }`); unit-tested.
   - `sendPush(messages)` — POSTs to the Expo Push API (`https://exp.host/--/api/v2/push/send`), chunked, tolerant of per-message errors; logs and drops `DeviceNotRegistered` tokens (deletes them).
-- **Dispatch (post-commit, via BullMQ):** `logActivity` already returns `heroLevelUp / sectionLevelUp / activityLevelUp` and pending perk choices. After the log transaction commits, the route enqueues a `push` job (alongside the existing achievement job) carrying `{ userId, levelUps, perkChoices }`. A worker loads the user's `device_tokens`, builds payloads, and calls `sendPush`. **No external call in the request path; no change to the 19-step transaction.**
+- **Dispatch (post-response, fire-and-forget):** `logActivity` already returns `heroLevelUp / sectionLevelUp / activityLevelUp` and `pendingPerkChoices`. After the route sends the reply, it calls `dispatchPush({ userId, heroLevelUp, pendingPerkChoices })` **without awaiting it** (errors caught + logged). `dispatchPush` loads the user's `device_tokens`, builds payloads, and calls `sendPush`. **No external call blocks the response; no change to the 19-step transaction.** (The repo declares `bullmq` but stands up no worker process; this dispatch is deliberately factored as a single function so it can later move behind a BullMQ queue without touching the route.)
 
 ---
 
