@@ -32,7 +32,21 @@ export default function Track() {
     });
   }, [router]);
 
-  useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      listSavedSessions().then((s) => { if (!cancelled) setSaved(s); }).catch(() => { if (!cancelled) setSaved([]); });
+      getActiveSession().then((active) => {
+        if (!cancelled && active) {
+          Alert.alert("Resume tracking?", "You have an unfinished activity.", [
+            { text: "Discard", style: "destructive", onPress: () => deleteSession(active.id).then(refresh) },
+            { text: "Resume", onPress: () => router.push("/track/active") },
+          ]);
+        }
+      });
+      return () => { cancelled = true; };
+    }, [refresh]),
+  );
 
   const onStart = async () => {
     setError(null);
