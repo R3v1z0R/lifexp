@@ -15,4 +15,19 @@ config.resolver.nodeModulesPaths = [
 // siblings inside the .pnpm store; disabling hierarchical lookup would stop
 // Metro from finding e.g. expo-router's own deps (@expo/metro-runtime).
 
+// Resolve the shared workspace package to its SOURCE (it ships no dist build;
+// its package.json "main" points at a non-existent ./dist). This intercept
+// runs before normal resolution so the symlinked package's broken main is
+// never hit.
+const ALIASES = {
+  "@lifexp/types": path.resolve(workspaceRoot, "packages/types/src/index.ts"),
+};
+const defaultResolveRequest = config.resolver.resolveRequest;
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (ALIASES[moduleName]) {
+    return { type: "sourceFile", filePath: ALIASES[moduleName] };
+  }
+  return (defaultResolveRequest ?? context.resolveRequest)(context, moduleName, platform);
+};
+
 module.exports = config;
