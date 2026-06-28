@@ -124,10 +124,11 @@ export async function saveSession(
 ): Promise<void> {
   const db = await getDb();
   await db.runAsync(
-    "UPDATE sessions SET status = 'saved', value = ?, intensity_json = ?, final_xp = ? WHERE id = ?",
+    "UPDATE sessions SET status = 'saved', value = ?, intensity_json = ?, final_xp = ?, ended_at = COALESCE(ended_at, ?) WHERE id = ?",
     value,
     intensityJson,
     finalXp,
+    Date.now(),
     sessionId,
   );
 }
