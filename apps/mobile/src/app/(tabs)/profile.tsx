@@ -27,7 +27,13 @@ export default function Profile() {
       setPushOn(Boolean(token));
     } else {
       const token = getStoredPushToken();
-      if (token) await api.unregisterDevice(token);
+      if (token) {
+        try {
+          await api.unregisterDevice(token);
+        } catch {
+          /* best-effort */
+        }
+      }
       setPushOn(false);
     }
   }
