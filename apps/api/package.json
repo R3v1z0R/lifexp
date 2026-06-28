@@ -12,20 +12,22 @@
     "db:generate": "drizzle-kit generate",
     "db:seed": "tsx ./src/db/seed.ts",
     "db:migrate": "tsx ./src/db/migrate.ts",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
-    "@lifexp/types": "workspace:*",
-    "@lifexp/xp-engine": "workspace:*",
     "@fastify/cors": "^10.0.0",
     "@fastify/jwt": "^9.0.0",
     "@fastify/rate-limit": "^10.0.0",
     "@fastify/swagger": "^9.4.2",
     "@fastify/swagger-ui": "^5.2.1",
+    "@lifexp/types": "workspace:*",
+    "@lifexp/xp-engine": "workspace:*",
     "bcrypt": "^5.1.1",
     "bullmq": "^5.15.1",
-    "drizzle-orm": "^0.45.2",
     "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.45.2",
     "fastify": "^5.1.1",
     "postgres": "^3.4.4",
     "stripe": "^17.2.1",
@@ -37,6 +39,7 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.7.0",
     "tsx": "^4.16.2",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.9"
   }
 }
