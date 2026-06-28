@@ -363,10 +363,9 @@ export const device_tokens = pgTable(
     platform: platformEnum("platform").notNull(),
     created_at: timestamp("created_at").defaultNow().notNull(),
     last_seen_at: timestamp("last_seen_at").defaultNow().notNull(),
-  },
-  (t) => ({
-    tokenIdx: uniqueIndex().on(t.expo_push_token),
-  })
+  }
+  // expo_push_token uniqueness comes from the column-level .unique() above;
+  // no second unique index (a redundant one creates two indexes on db:push).
 );
 ```
 
@@ -429,7 +428,16 @@ export async function deviceRoutes(app: FastifyInstance) {
       const { expoPushToken } = (request.body ?? {}) as UnregisterBody;
       if (!expoPushToken) return reply.status(400).send({ error: "Missing expoPushToken" });
 
-      await db.delete(device_tokens).where(eq(device_tokens.expo_push_token, expoPushToken));
+      // Scope deletion to the caller's own token (drizzle `and`): a user must
+      // not be able to remove another user's registration by guessing its token.
+      await db
+        .delete(device_tokens)
+        .where(
+          and(
+            eq(device_tokens.expo_push_token, expoPushToken),
+            eq(device_tokens.user_id, user.userId)
+          )
+        );
       return reply.send({ ok: true });
     }
   );

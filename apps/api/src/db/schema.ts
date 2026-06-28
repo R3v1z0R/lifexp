@@ -67,10 +67,9 @@ export const device_tokens = pgTable(
     platform: platformEnum("platform").notNull(),
     created_at: timestamp("created_at").defaultNow().notNull(),
     last_seen_at: timestamp("last_seen_at").defaultNow().notNull(),
-  },
-  (t) => ({
-    tokenIdx: uniqueIndex().on(t.expo_push_token),
-  })
+  }
+  // `expo_push_token` is unique via the column-level .unique() above; no second
+  // unique index needed (a redundant one would create two indexes on db:push).
 );
 
 export const refresh_tokens = pgTable(
