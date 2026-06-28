@@ -21,6 +21,7 @@ config.resolver.nodeModulesPaths = [
 // never hit.
 const ALIASES = {
   "@lifexp/types": path.resolve(workspaceRoot, "packages/types/src/index.ts"),
+  "@lifexp/xp-engine": path.resolve(workspaceRoot, "packages/xp-engine/src/index.ts"),
 };
 const defaultResolveRequest = config.resolver.resolveRequest;
 config.resolver.resolveRequest = (context, moduleName, platform) => {

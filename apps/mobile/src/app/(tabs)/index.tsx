@@ -1,5 +1,6 @@
 import { Text, StyleSheet, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
+import { xpToNextLevel } from "@lifexp/xp-engine";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { Screen } from "../../components/Screen";
@@ -7,10 +8,6 @@ import { Card } from "../../components/Card";
 import { XpRing } from "../../components/XpRing";
 import { XpBar } from "../../components/XpBar";
 import { colors, fonts, spacing } from "../../theme";
-
-function xpToNext(level: number) {
-  return Math.floor(50 * Math.pow(level, 1.6));
-}
 
 export default function Home() {
   const { user } = useAuth();
@@ -20,7 +17,7 @@ export default function Home() {
   const hero = meQuery.data?.user ?? user;
   const level = hero?.hero_level ?? 1;
   const xp = hero?.hero_xp ?? 0;
-  const next = xpToNext(level);
+  const next = xpToNextLevel(level);
 
   return (
     <Screen>
@@ -40,7 +37,7 @@ export default function Home() {
       </Card>
 
       <Text style={styles.h2}>Recent quests</Text>
-      {(logsQuery.data ?? []).slice(0, 10).map((log: any) => (
+      {(logsQuery.data ?? []).slice(0, 10).map((log) => (
         <Card key={log.id}>
           <Text style={styles.logTitle}>{log.activity_slug}</Text>
           <Text style={styles.muted}>

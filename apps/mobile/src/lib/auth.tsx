@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { api, tokenStore } from "./api";
 import type { User } from "@lifexp/types";
 
@@ -19,7 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<Status>("loading");
 
-  async function loadMe() {
+  const loadMe = useCallback(async () => {
     try {
       const { user } = await api.me();
       setUser(user);
@@ -28,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setStatus("anon");
     }
-  }
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -39,30 +47,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       await loadMe();
     })();
+  }, [loadMe]);
+
+  const login = useCallback(async (identifier: string, password: string) => {
+    const res = await api.login({ identifier, password });
+    await tokenStore.setTokens(res.accessToken, res.refreshToken);
+    setUser(res.user);
+    setStatus("authed");
   }, []);
 
-  const value: AuthValue = {
-    user,
-    status,
-    async login(identifier, password) {
-      const res = await api.login({ identifier, password });
-      await tokenStore.setTokens(res.accessToken, res.refreshToken);
-      setUser(res.user);
-      setStatus("authed");
-    },
-    async register(username, email, password) {
-      const res = await api.register({ username, email, password });
-      await tokenStore.setTokens(res.accessToken, res.refreshToken);
-      setUser(res.user);
-      setStatus("authed");
-    },
-    async logout() {
-      await tokenStore.clear();
-      setUser(null);
-      setStatus("anon");
-    },
-    refreshMe: loadMe,
-  };
+  const register = useCallback(async (username: string, email: string, password: string) => {
+    const res = await api.register({ username, email, password });
+    await tokenStore.setTokens(res.accessToken, res.refreshToken);
+    setUser(res.user);
+    setStatus("authed");
+  }, []);
+
+  const logout = useCallback(async () => {
+    await tokenStore.clear();
+    setUser(null);
+    setStatus("anon");
+  }, []);
+
+  const value = useMemo<AuthValue>(
+    () => ({ user, status, login, register, logout, refreshMe: loadMe }),
+    [user, status, login, register, logout, loadMe]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

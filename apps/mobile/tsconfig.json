@@ -11,6 +11,9 @@
       ],
       "@lifexp/types": [
         "../../packages/types/src"
+      ],
+      "@lifexp/xp-engine": [
+        "../../packages/xp-engine/src"
       ]
     }
   },

@@ -113,6 +113,15 @@ export interface LogResponse {
   heroLevelUp: LevelUpEvent | null;
 }
 
+// A row from GET /logs, as consumed by the Home recent-quests list.
+export interface RecentLog {
+  id: string;
+  activity_slug: string;
+  value: number;
+  final_xp: number;
+  logged_at: string;
+}
+
 export const api = {
   login: (body: { identifier: string; password: string }) =>
     request<AuthResult>("/auth/login", { method: "POST", body: JSON.stringify(body) }),
@@ -122,7 +131,7 @@ export const api = {
   activities: () => request<{ activities: ActivityDefinition[] }>("/activities"),
   intensity: (slug: string) =>
     request<{ configs: ActivityIntensityConfig[] }>(`/activities/${slug}/intensity`),
-  logs: () => request<unknown[]>("/logs"),
+  logs: () => request<RecentLog[]>("/logs"),
   createLog: (body: {
     activitySlug: string;
     value: number;

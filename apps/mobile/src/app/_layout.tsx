@@ -22,7 +22,7 @@ function Gate() {
     const inAuth = segments[0] === "(auth)";
     if (status === "anon" && !inAuth) router.replace("/(auth)/login");
     if (status === "authed" && inAuth) router.replace("/(tabs)");
-  }, [status, segments]);
+  }, [status, segments, router]);
 
   if (status === "loading") {
     return (
