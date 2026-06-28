@@ -13,6 +13,7 @@ import { goalsRoutes } from "./routes/goals";
 import { eventsRoutes } from "./routes/events";
 import { adminRoutes } from "./routes/admin";
 import { catalogRoutes } from "./routes/catalog";
+import { deviceRoutes } from "./routes/devices";
 
 const app = Fastify({
   logger: true,
@@ -88,6 +89,7 @@ app.register(goalsRoutes);
 app.register(eventsRoutes);
 app.register(adminRoutes);
 app.register(catalogRoutes);
+app.register(deviceRoutes);
 
 // Health check
 app.get("/health", async (request, reply) => {
