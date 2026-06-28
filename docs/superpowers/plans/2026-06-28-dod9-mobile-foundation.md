@@ -757,10 +757,8 @@ describe("request refresh-on-401", () => {
       .fn()
       // 1) original call -> 401
       .mockResolvedValueOnce(jsonResponse(401, { error: "Unauthorized" }))
-      // 2) refresh -> new tokens
-      .mockResolvedValueOnce(
-        jsonResponse(200, { accessToken: "access-new", refreshToken: "refresh-2" })
-      )
+      // 2) refresh -> new access token only (API does not rotate the refresh token)
+      .mockResolvedValueOnce(jsonResponse(200, { accessToken: "access-new" }))
       // 3) retry -> success
       .mockResolvedValueOnce(jsonResponse(200, { user: { id: "u1" } }));
     global.fetch = fetchMock as any;
@@ -785,8 +783,7 @@ describe("request refresh-on-401", () => {
 
   it("shares a single refresh across concurrent 401s", async () => {
     const fetchMock = jest.fn().mockImplementation(async (url: string) => {
-      if (url.endsWith("/auth/refresh"))
-        return jsonResponse(200, { accessToken: "access-new", refreshToken: "refresh-2" });
+      if (url.endsWith("/auth/refresh")) return jsonResponse(200, { accessToken: "access-new" });
       // first time each protected call is hit it 401s, then succeeds with new token
       return jsonResponse(401, { error: "Unauthorized" });
     });
@@ -858,8 +855,10 @@ async function doRefresh(): Promise<boolean> {
       if (!res.ok) return false;
       const text = await res.text();
       const data = text ? JSON.parse(text) : null;
-      if (!data?.accessToken || !data?.refreshToken) return false;
-      await tokenStore.setTokens(data.accessToken, data.refreshToken);
+      if (!data?.accessToken) return false;
+      // The API's /auth/refresh returns ONLY a new access token; the refresh
+      // token is non-rotating, so we keep the existing one in storage.
+      await tokenStore.setTokens(data.accessToken, refreshToken);
       return true;
     })().finally(() => {
       refreshPromise = null;
