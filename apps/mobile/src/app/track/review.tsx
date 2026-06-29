@@ -26,25 +26,29 @@ export default function Review() {
 
   useEffect(() => {
     (async () => {
-      const session = await getActiveSession();
-      if (!session) {
-        router.replace("/(tabs)/track");
-        return;
+      try {
+        const session = await getActiveSession();
+        if (!session) {
+          router.replace("/(tabs)/track");
+          return;
+        }
+        setSessionId(session.id);
+        setActivitySlug(session.activity_slug);
+        const pts = await getPoints(session.id);
+        const geo: GeoPoint[] = pts.map((p) => ({ lat: p.lat, lng: p.lng, accuracy: p.accuracy, t: p.t }));
+        const summary = summarize(geo, session.paused_ms);
+        const activities = await api.activities();
+        const def = activities.activities.find((a) => a.slug === session.activity_slug);
+        if (!def) {
+          setError("Activity definition unavailable.");
+          return;
+        }
+        const body = buildLogBody(def, summary);
+        setValue(String(body.value));
+        setIntensity(body.intensityInputs ?? {});
+      } catch (e) {
+        setError(e instanceof ApiError ? e.message : "Could not load session data.");
       }
-      setSessionId(session.id);
-      setActivitySlug(session.activity_slug);
-      const pts = await getPoints(session.id);
-      const geo: GeoPoint[] = pts.map((p) => ({ lat: p.lat, lng: p.lng, accuracy: p.accuracy, t: p.t }));
-      const summary = summarize(geo, session.paused_ms);
-      const activities = await api.activities();
-      const def = activities.activities.find((a) => a.slug === session.activity_slug);
-      if (!def) {
-        setError("Activity definition unavailable.");
-        return;
-      }
-      const body = buildLogBody(def, summary);
-      setValue(String(body.value));
-      setIntensity(body.intensityInputs ?? {});
     })();
   }, [router]);
 
