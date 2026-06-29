@@ -5,6 +5,7 @@ import { api, ApiError, type LogResponse } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { Screen } from "../../components/Screen";
 import { Card } from "../../components/Card";
+import { XpResultCard } from "../../components/XpResultCard";
 import { colors, fonts, spacing, radii } from "../../theme";
 
 export default function Log() {
@@ -114,18 +115,7 @@ export default function Log() {
         </Pressable>
       </Card>
 
-      {result && (
-        <Card>
-          <Text style={styles.xpEarned}>+{result.xpBreakdown.final_xp} XP</Text>
-          <Text style={styles.muted}>
-            base {result.xpBreakdown.raw_xp} · ×{result.xpBreakdown.intensity_multiplier.toFixed(2)} intensity · ×
-            {result.xpBreakdown.streak_multiplier.toFixed(2)} streak
-          </Text>
-          {result.heroLevelUp && (
-            <Text style={styles.levelUp}>Hero reached level {result.heroLevelUp.new_level} ✦</Text>
-          )}
-        </Card>
-      )}
+      {result && <XpResultCard result={result} />}
     </Screen>
   );
 }
@@ -144,6 +134,4 @@ const styles = StyleSheet.create({
   buttonText: { color: colors.bg, fontFamily: fonts.bodyBold, fontSize: 16 },
   muted: { fontFamily: fonts.body, color: colors.muted },
   error: { color: colors.danger, fontFamily: fonts.body, marginTop: spacing.sm },
-  xpEarned: { fontFamily: fonts.hud, fontSize: 28, color: colors.xp },
-  levelUp: { color: colors.arcane2, fontFamily: fonts.bodyBold, marginTop: spacing.sm },
 });

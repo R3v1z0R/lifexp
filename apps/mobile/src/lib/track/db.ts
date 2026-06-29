@@ -1,0 +1,204 @@
+import * as SQLite from "expo-sqlite";
+import * as Crypto from "expo-crypto";
+
+export interface TrackSession {
+  id: string;
+  activity_slug: string;
+  status: "active" | "ended" | "saved";
+  started_at: number;
+  ended_at: number | null;
+  paused_ms: number;
+  paused_at: number | null; // epoch ms when the current pause began; null while running
+  value: number | null;
+  intensity_json: string | null;
+  final_xp: number | null;
+}
+
+export interface StoredPoint {
+  lat: number;
+  lng: number;
+  accuracy: number;
+  t: number;
+}
+
+let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+
+// Open the database AND create the schema as one unit. Because every consumer goes
+// through the shared getDb() promise, no query can run before the tables exist —
+// even if Start is tapped the instant the app launches.
+async function openAndInit(): Promise<SQLite.SQLiteDatabase> {
+  const db = await SQLite.openDatabaseAsync("lifexp-track.db");
+  await db.execAsync(`
+    PRAGMA journal_mode = WAL;
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY NOT NULL,
+      activity_slug TEXT NOT NULL,
+      status TEXT NOT NULL,
+      started_at INTEGER NOT NULL,
+      ended_at INTEGER,
+      paused_ms INTEGER NOT NULL DEFAULT 0,
+      paused_at INTEGER,
+      value REAL,
+      intensity_json TEXT,
+      final_xp INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS points (
+      id TEXT PRIMARY KEY NOT NULL,
+      session_id TEXT NOT NULL,
+      lat REAL NOT NULL,
+      lng REAL NOT NULL,
+      accuracy REAL NOT NULL,
+      t INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_points_session ON points (session_id, t);
+  `);
+  // Migration for DBs created before paused_at existed. SQLite has no
+  // "ADD COLUMN IF NOT EXISTS", so swallow the duplicate-column error.
+  await db.execAsync("ALTER TABLE sessions ADD COLUMN paused_at INTEGER").catch(() => {
+    /* column already present */
+  });
+  return db;
+}
+
+function getDb(): Promise<SQLite.SQLiteDatabase> {
+  if (!dbPromise) {
+    dbPromise = openAndInit().catch((e) => {
+      dbPromise = null; // don't cache a failed open/init — allow a retry on the next call
+      throw e;
+    });
+  }
+  return dbPromise;
+}
+
+// Kept for the app entrypoint to warm the connection (and surface init failures
+// early). The schema is now ensured inside getDb, so calling this is optional.
+export async function initDb(): Promise<void> {
+  await getDb();
+}
+
+export async function createSession(activitySlug: string): Promise<string> {
+  const db = await getDb();
+  const id = Crypto.randomUUID();
+  await db.runAsync(
+    "INSERT INTO sessions (id, activity_slug, status, started_at, paused_ms) VALUES (?, ?, 'active', ?, 0)",
+    id,
+    activitySlug,
+    Date.now(),
+  );
+  return id;
+}
+
+export async function appendPoints(sessionId: string, points: StoredPoint[]): Promise<void> {
+  if (points.length === 0) return;
+  const db = await getDb();
+  await db.withTransactionAsync(async () => {
+    for (const p of points) {
+      await db.runAsync(
+        "INSERT INTO points (id, session_id, lat, lng, accuracy, t) VALUES (?, ?, ?, ?, ?, ?)",
+        Crypto.randomUUID(),
+        sessionId,
+        p.lat,
+        p.lng,
+        p.accuracy,
+        p.t,
+      );
+    }
+  });
+}
+
+// A session is "active" only while tracking; once stopped it becomes "ended" (see
+// endSession) so the resume prompt and the background task no longer pick it up.
+export async function getActiveSession(): Promise<TrackSession | null> {
+  const db = await getDb();
+  return (
+    (await db.getFirstAsync<TrackSession>(
+      "SELECT * FROM sessions WHERE status = 'active' ORDER BY started_at DESC LIMIT 1",
+    )) ?? null
+  );
+}
+
+// The most-recently stopped-but-unsaved session, for the review/submit screen.
+export async function getEndedSession(): Promise<TrackSession | null> {
+  const db = await getDb();
+  return (
+    (await db.getFirstAsync<TrackSession>(
+      "SELECT * FROM sessions WHERE status = 'ended' ORDER BY ended_at DESC LIMIT 1",
+    )) ?? null
+  );
+}
+
+export async function getSession(id: string): Promise<TrackSession | null> {
+  const db = await getDb();
+  return (await db.getFirstAsync<TrackSession>("SELECT * FROM sessions WHERE id = ?", id)) ?? null;
+}
+
+export async function getPoints(sessionId: string): Promise<StoredPoint[]> {
+  const db = await getDb();
+  return db.getAllAsync<StoredPoint>(
+    "SELECT lat, lng, accuracy, t FROM points WHERE session_id = ? ORDER BY t ASC",
+    sessionId,
+  );
+}
+
+export async function setPausedMs(sessionId: string, pausedMs: number): Promise<void> {
+  const db = await getDb();
+  await db.runAsync("UPDATE sessions SET paused_ms = ? WHERE id = ?", pausedMs, sessionId);
+}
+
+// Persist (or clear, with null) the start of the current pause so pause accounting
+// survives a process kill while paused.
+export async function setPausedAt(sessionId: string, pausedAt: number | null): Promise<void> {
+  const db = await getDb();
+  await db.runAsync("UPDATE sessions SET paused_at = ? WHERE id = ?", pausedAt, sessionId);
+}
+
+export async function endSession(sessionId: string): Promise<void> {
+  const db = await getDb();
+  await db.withTransactionAsync(async () => {
+    // Drop any earlier stopped-but-unsaved session (the user stopped it and never
+    // saved or discarded). Only the just-ended one should survive for the review
+    // screen, so orphaned 'ended' rows and their points don't accumulate.
+    await db.runAsync(
+      "DELETE FROM points WHERE session_id IN (SELECT id FROM sessions WHERE status = 'ended' AND id != ?)",
+      sessionId,
+    );
+    await db.runAsync("DELETE FROM sessions WHERE status = 'ended' AND id != ?", sessionId);
+    await db.runAsync(
+      "UPDATE sessions SET status = 'ended', ended_at = ? WHERE id = ?",
+      Date.now(),
+      sessionId,
+    );
+  });
+}
+
+export async function saveSession(
+  sessionId: string,
+  value: number,
+  intensityJson: string,
+  finalXp: number,
+): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    "UPDATE sessions SET status = 'saved', value = ?, intensity_json = ?, final_xp = ?, ended_at = COALESCE(ended_at, ?) WHERE id = ?",
+    value,
+    intensityJson,
+    finalXp,
+    Date.now(),
+    sessionId,
+  );
+}
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  const db = await getDb();
+  await db.withTransactionAsync(async () => {
+    await db.runAsync("DELETE FROM points WHERE session_id = ?", sessionId);
+    await db.runAsync("DELETE FROM sessions WHERE id = ?", sessionId);
+  });
+}
+
+export async function listSavedSessions(): Promise<TrackSession[]> {
+  const db = await getDb();
+  return db.getAllAsync<TrackSession>(
+    "SELECT * FROM sessions WHERE status = 'saved' ORDER BY started_at DESC",
+  );
+}
