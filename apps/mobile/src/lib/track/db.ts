@@ -23,18 +23,11 @@ export interface StoredPoint {
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
-function getDb(): Promise<SQLite.SQLiteDatabase> {
-  if (!dbPromise) {
-    dbPromise = SQLite.openDatabaseAsync("lifexp-track.db").catch((e) => {
-      dbPromise = null; // don't cache a failed open — allow a retry on the next call
-      throw e;
-    });
-  }
-  return dbPromise;
-}
-
-export async function initDb(): Promise<void> {
-  const db = await getDb();
+// Open the database AND create the schema as one unit. Because every consumer goes
+// through the shared getDb() promise, no query can run before the tables exist —
+// even if Start is tapped the instant the app launches.
+async function openAndInit(): Promise<SQLite.SQLiteDatabase> {
+  const db = await SQLite.openDatabaseAsync("lifexp-track.db");
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
     CREATE TABLE IF NOT EXISTS sessions (
@@ -64,6 +57,23 @@ export async function initDb(): Promise<void> {
   await db.execAsync("ALTER TABLE sessions ADD COLUMN paused_at INTEGER").catch(() => {
     /* column already present */
   });
+  return db;
+}
+
+function getDb(): Promise<SQLite.SQLiteDatabase> {
+  if (!dbPromise) {
+    dbPromise = openAndInit().catch((e) => {
+      dbPromise = null; // don't cache a failed open/init — allow a retry on the next call
+      throw e;
+    });
+  }
+  return dbPromise;
+}
+
+// Kept for the app entrypoint to warm the connection (and surface init failures
+// early). The schema is now ensured inside getDb, so calling this is optional.
+export async function initDb(): Promise<void> {
+  await getDb();
 }
 
 export async function createSession(activitySlug: string): Promise<string> {
@@ -144,11 +154,21 @@ export async function setPausedAt(sessionId: string, pausedAt: number | null): P
 
 export async function endSession(sessionId: string): Promise<void> {
   const db = await getDb();
-  await db.runAsync(
-    "UPDATE sessions SET status = 'ended', ended_at = ? WHERE id = ?",
-    Date.now(),
-    sessionId,
-  );
+  await db.withTransactionAsync(async () => {
+    // Drop any earlier stopped-but-unsaved session (the user stopped it and never
+    // saved or discarded). Only the just-ended one should survive for the review
+    // screen, so orphaned 'ended' rows and their points don't accumulate.
+    await db.runAsync(
+      "DELETE FROM points WHERE session_id IN (SELECT id FROM sessions WHERE status = 'ended' AND id != ?)",
+      sessionId,
+    );
+    await db.runAsync("DELETE FROM sessions WHERE status = 'ended' AND id != ?", sessionId);
+    await db.runAsync(
+      "UPDATE sessions SET status = 'ended', ended_at = ? WHERE id = ?",
+      Date.now(),
+      sessionId,
+    );
+  });
 }
 
 export async function saveSession(

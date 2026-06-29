@@ -15,6 +15,13 @@ export interface SessionSummary {
 const EARTH_RADIUS_M = 6_371_000;
 const toRad = (deg: number): number => (deg * Math.PI) / 180;
 
+// Fixes worse than this horizontal accuracy (meters) are too unreliable to count
+// toward distance or to draw on the map (a missing accuracy is stored as a large
+// sentinel, so it falls outside this gate).
+export const DEFAULT_MIN_ACCURACY_M = 30;
+// Sub-threshold movement between consecutive fixes is GPS jitter, not real distance.
+export const DEFAULT_MIN_MOVE_M = 3;
+
 export function haversineMeters(
   a: { lat: number; lng: number },
   b: { lat: number; lng: number },
@@ -32,8 +39,8 @@ export function accumulateDistance(
   points: GeoPoint[],
   opts: { minAccuracyM?: number; minMoveM?: number } = {},
 ): number {
-  const minAccuracyM = opts.minAccuracyM ?? 30;
-  const minMoveM = opts.minMoveM ?? 3;
+  const minAccuracyM = opts.minAccuracyM ?? DEFAULT_MIN_ACCURACY_M;
+  const minMoveM = opts.minMoveM ?? DEFAULT_MIN_MOVE_M;
   const good = points.filter((p) => p.accuracy <= minAccuracyM);
   let total = 0;
   for (let i = 1; i < good.length; i += 1) {
@@ -50,6 +57,15 @@ export function summarize(points: GeoPoint[], pausedMs: number): SessionSummary 
     distanceM: accumulateDistance(points),
     movingMs: Math.max(0, elapsed - pausedMs),
   };
+}
+
+// Fixes good enough to render — same accuracy gate as distance, so the drawn route
+// matches the measured one and an unreliable fix can't spike the map polyline.
+export function accuratePoints<T extends { accuracy: number }>(
+  points: T[],
+  minAccuracyM: number = DEFAULT_MIN_ACCURACY_M,
+): T[] {
+  return points.filter((p) => p.accuracy <= minAccuracyM);
 }
 
 // Human-readable distance for a live/derived measurement. Swimming is shown in

@@ -2,6 +2,7 @@ import {
   haversineMeters,
   accumulateDistance,
   summarize,
+  accuratePoints,
   derivePaceSpeed,
   formatDistance,
   formatValueWithUnit,
@@ -40,6 +41,20 @@ describe("accumulateDistance", () => {
   it("returns 0 for fewer than two points", () => {
     expect(accumulateDistance([pt(50, 14, 0)])).toBe(0);
     expect(accumulateDistance([])).toBe(0);
+  });
+});
+
+describe("accuratePoints", () => {
+  it("keeps only fixes within the accuracy gate, preserving order", () => {
+    const pts = [pt(50.0, 14.0, 0, 5), pt(50.5, 14.0, 1000, 200), pt(50.001, 14.0, 2000, 9999)];
+    const good = accuratePoints(pts);
+    expect(good).toHaveLength(1);
+    expect(good[0].t).toBe(0); // the 200m and 9999m sentinel fixes are dropped
+  });
+  it("matches the distance accuracy gate so the drawn route mirrors the measured one", () => {
+    const pts = [pt(50.0, 14.0, 0, 5), pt(50.5, 14.0, 1000, 200), pt(50.001, 14.0, 2000, 5)];
+    // The 50.5/200m outlier is excluded from both distance and the render set.
+    expect(accuratePoints(pts).map((p) => p.t)).toEqual([0, 2000]);
   });
 });
 

@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { getActiveSession, getPoints, type StoredPoint } from "../../lib/track/db";
 import { stopTracking, pauseTracking, resumeTracking, finalizeSession, reconcileTracking } from "../../lib/track/tracker";
-import { summarize, type GeoPoint } from "../../lib/track/geo";
+import { summarize, accuratePoints, type GeoPoint } from "../../lib/track/geo";
 import { TrackMap } from "../../components/TrackMap";
 import { Screen } from "../../components/Screen";
 import { Card } from "../../components/Card";
@@ -83,7 +83,7 @@ export default function ActiveSession() {
 
   return (
     <Screen>
-      <TrackMap points={points.map((p) => ({ lat: p.lat, lng: p.lng }))} />
+      <TrackMap points={accuratePoints(points).map((p) => ({ lat: p.lat, lng: p.lng }))} />
       <Card>
         <View style={styles.statsRow}>
           <View style={styles.stat}>

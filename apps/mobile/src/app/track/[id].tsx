@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Text, StyleSheet, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { getSession, getPoints, type TrackSession, type StoredPoint } from "../../lib/track/db";
-import { summarize, formatDistance, type GeoPoint } from "../../lib/track/geo";
+import { summarize, formatDistance, accuratePoints, type GeoPoint } from "../../lib/track/geo";
 import { TrackMap } from "../../components/TrackMap";
 import { Screen } from "../../components/Screen";
 import { Card } from "../../components/Card";
@@ -24,7 +24,7 @@ export default function TrackDetail() {
 
   return (
     <Screen>
-      <TrackMap points={points.map((p) => ({ lat: p.lat, lng: p.lng }))} />
+      <TrackMap points={accuratePoints(points).map((p) => ({ lat: p.lat, lng: p.lng }))} />
       <Card>
         <Text style={styles.activity}>{session?.activity_slug ?? "…"}</Text>
         <View style={styles.row}>
