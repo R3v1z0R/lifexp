@@ -4,7 +4,7 @@ import * as Crypto from "expo-crypto";
 export interface TrackSession {
   id: string;
   activity_slug: string;
-  status: "active" | "saved";
+  status: "active" | "ended" | "saved";
   started_at: number;
   ended_at: number | null;
   paused_ms: number;
@@ -84,11 +84,23 @@ export async function appendPoints(sessionId: string, points: StoredPoint[]): Pr
   });
 }
 
+// A session is "active" only while tracking; once stopped it becomes "ended" (see
+// endSession) so the resume prompt and the background task no longer pick it up.
 export async function getActiveSession(): Promise<TrackSession | null> {
   const db = await getDb();
   return (
     (await db.getFirstAsync<TrackSession>(
       "SELECT * FROM sessions WHERE status = 'active' ORDER BY started_at DESC LIMIT 1",
+    )) ?? null
+  );
+}
+
+// The most-recently stopped-but-unsaved session, for the review/submit screen.
+export async function getEndedSession(): Promise<TrackSession | null> {
+  const db = await getDb();
+  return (
+    (await db.getFirstAsync<TrackSession>(
+      "SELECT * FROM sessions WHERE status = 'ended' ORDER BY ended_at DESC LIMIT 1",
     )) ?? null
   );
 }
@@ -113,7 +125,11 @@ export async function setPausedMs(sessionId: string, pausedMs: number): Promise<
 
 export async function endSession(sessionId: string): Promise<void> {
   const db = await getDb();
-  await db.runAsync("UPDATE sessions SET ended_at = ? WHERE id = ?", Date.now(), sessionId);
+  await db.runAsync(
+    "UPDATE sessions SET status = 'ended', ended_at = ? WHERE id = ?",
+    Date.now(),
+    sessionId,
+  );
 }
 
 export async function saveSession(

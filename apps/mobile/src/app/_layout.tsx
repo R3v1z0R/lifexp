@@ -9,6 +9,12 @@ import {
 import { Inter_400Regular, Inter_600SemiBold } from "@expo-google-fonts/inter";
 import { JetBrainsMono_700Bold } from "@expo-google-fonts/jetbrains-mono";
 import { AuthProvider, useAuth } from "../lib/auth";
+// Side-effect import: registers the background location TaskManager task in global
+// scope on every app start, including headless background relaunches. Without this,
+// expo-router would only lazy-load the task when the Track route mounts, so a
+// background-relaunched process delivering a location batch would find no task and
+// silently drop GPS points.
+import "../lib/track/locationTask";
 import { initDb } from "../lib/track/db";
 import { queryClient } from "../lib/queryClient";
 import { colors } from "../theme";

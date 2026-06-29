@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, ApiError, type LogResponse } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
-import { getActiveSession, getPoints, saveSession, deleteSession } from "../../lib/track/db";
+import { getEndedSession, getPoints, saveSession, deleteSession } from "../../lib/track/db";
 import { summarize, type GeoPoint } from "../../lib/track/geo";
 import { buildLogBody } from "../../lib/track/submit";
 import { Screen } from "../../components/Screen";
@@ -27,7 +27,7 @@ export default function Review() {
   useEffect(() => {
     (async () => {
       try {
-        const session = await getActiveSession();
+        const session = await getEndedSession();
         if (!session) {
           router.replace("/(tabs)/track");
           return;
@@ -53,7 +53,7 @@ export default function Review() {
   }, [router]);
 
   const onSave = async () => {
-    if (!sessionId) return;
+    if (!sessionId || pending) return; // re-entry guard against double submit
     const numericValue = Number(value);
     if (!numericValue || numericValue <= 0) {
       setError("Distance is zero — nothing to log. Discard instead.");
@@ -61,19 +61,29 @@ export default function Review() {
     }
     setPending(true);
     setError(null);
+    let res: LogResponse;
     try {
-      const res = await api.createLog({
+      res = await api.createLog({
         activitySlug,
         value: numericValue,
         intensityInputs: Object.keys(intensity).length ? intensity : undefined,
       });
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Could not save activity.");
+      setPending(false);
+      return;
+    }
+    // The server has committed the log and awarded XP — point of no return. Show the
+    // result now so the form (and its Save button) is replaced; the local bookkeeping
+    // below is best-effort and must never let the user re-submit and double-award XP.
+    setResult(res);
+    try {
       await saveSession(sessionId, numericValue, JSON.stringify(intensity), res.xpBreakdown.final_xp);
-      setResult(res);
       await refreshMe();
       qc.invalidateQueries({ queryKey: ["logs"] });
       qc.invalidateQueries({ queryKey: ["me"] });
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Could not save activity.");
+    } catch {
+      // Log is already persisted server-side; a local mirror/refresh failure is non-fatal.
     } finally {
       setPending(false);
     }
