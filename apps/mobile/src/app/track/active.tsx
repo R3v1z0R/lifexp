@@ -3,7 +3,7 @@ import { Text, Pressable, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { getActiveSession, getPoints, type StoredPoint } from "../../lib/track/db";
-import { stopTracking, pauseTracking, resumeTracking, finalizeSession } from "../../lib/track/tracker";
+import { stopTracking, pauseTracking, resumeTracking, finalizeSession, reconcileTracking } from "../../lib/track/tracker";
 import { summarize, type GeoPoint } from "../../lib/track/geo";
 import { TrackMap } from "../../components/TrackMap";
 import { Screen } from "../../components/Screen";
@@ -29,12 +29,21 @@ export default function ActiveSession() {
 
   useEffect(() => {
     let cancelled = false;
+    let reconciled = false;
     const poll = async () => {
       const session = await getActiveSession();
       if (!session || cancelled) return;
+      // On the first poll, restart GPS if the OS updates task isn't running (e.g.
+      // resuming after an app kill); a paused session is left stopped.
+      if (!reconciled) {
+        reconciled = true;
+        await reconcileTracking(session.id);
+        if (cancelled) return;
+      }
       setSessionId(session.id);
       setActivitySlug(session.activity_slug);
       setPausedMs(session.paused_ms);
+      setPaused(session.paused_at != null); // reflect the persisted pause state, not a stale local flag
       setPoints(await getPoints(session.id));
     };
     poll();
