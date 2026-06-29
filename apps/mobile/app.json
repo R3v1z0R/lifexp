@@ -10,12 +10,15 @@
     "ios": {
       "icon": "./assets/expo.icon",
       "infoPlist": {
-        "UIBackgroundModes": ["location"],
+        "UIBackgroundModes": [
+          "location"
+        ],
         "NSLocationWhenInUseUsageDescription": "LifeXP uses your location to measure your run, ride, or walk.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "LifeXP records your route in the background so you can lock your phone during a workout."
       }
     },
     "android": {
+      "package": "com.r3v1z0r.lifexp",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -64,14 +67,16 @@
       ],
       "expo-sqlite"
     ],
-    "extra": {
-      "eas": {
-        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
-      }
-    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2ca70f2b-1b74-4d86-889d-48973b2497e1"
+      }
+    },
+    "owner": "r3v1z0r"
   }
 }
