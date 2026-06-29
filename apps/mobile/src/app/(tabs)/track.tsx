@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../../lib/api";
 import { startTracking } from "../../lib/track/tracker";
 import { getActiveSession, listSavedSessions, deleteSession, type TrackSession } from "../../lib/track/db";
+import { formatValueWithUnit } from "../../lib/track/geo";
 import { Screen } from "../../components/Screen";
 import { Card } from "../../components/Card";
 import { colors, fonts, spacing, radii } from "../../theme";
@@ -20,17 +21,11 @@ export default function Track() {
   const [saved, setSaved] = useState<TrackSession[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(() => {
+  // Reload the saved-history list. Kept prompt-free so it is safe to call from an
+  // Alert callback; the resume prompt lives only in the focus effect below.
+  const refreshHistory = useCallback(() => {
     listSavedSessions().then(setSaved).catch(() => setSaved([]));
-    getActiveSession().then((active) => {
-      if (active) {
-        Alert.alert("Resume tracking?", "You have an unfinished activity.", [
-          { text: "Discard", style: "destructive", onPress: () => deleteSession(active.id).then(refresh) },
-          { text: "Resume", onPress: () => router.push("/track/active") },
-        ]);
-      }
-    });
-  }, [router]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -39,13 +34,13 @@ export default function Track() {
       getActiveSession().then((active) => {
         if (!cancelled && active) {
           Alert.alert("Resume tracking?", "You have an unfinished activity.", [
-            { text: "Discard", style: "destructive", onPress: () => deleteSession(active.id).then(refresh) },
+            { text: "Discard", style: "destructive", onPress: () => deleteSession(active.id).then(refreshHistory) },
             { text: "Resume", onPress: () => router.push("/track/active") },
           ]);
         }
       });
       return () => { cancelled = true; };
-    }, [refresh]),
+    }, [refreshHistory, router]),
   );
 
   const onStart = async () => {
@@ -71,7 +66,7 @@ export default function Track() {
           {activities.map((a) => (
             <Pressable
               key={a.slug}
-              onPress={() => setSlug(a.slug)}
+              onPress={() => { setSlug(a.slug); setError(null); }}
               style={[styles.chip, slug === a.slug && styles.chipActive]}
             >
               <Text style={[styles.chipText, slug === a.slug && styles.chipTextActive]}>{a.name}</Text>
@@ -98,7 +93,7 @@ export default function Track() {
           <Card>
             <Text style={styles.rowTitle}>{s.activity_slug}</Text>
             <Text style={styles.muted}>
-              {s.value ?? 0} · +{s.final_xp ?? 0} XP · {new Date(s.started_at).toLocaleDateString()}
+              {formatValueWithUnit(s.activity_slug, s.value ?? 0)} · +{s.final_xp ?? 0} XP · {new Date(s.started_at).toLocaleDateString()}
             </Text>
           </Card>
         </Pressable>

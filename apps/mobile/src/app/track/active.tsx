@@ -21,6 +21,7 @@ export default function ActiveSession() {
   useKeepAwake();
   const router = useRouter();
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [activitySlug, setActivitySlug] = useState("");
   const [points, setPoints] = useState<StoredPoint[]>([]);
   const [pausedMs, setPausedMs] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -32,6 +33,7 @@ export default function ActiveSession() {
       const session = await getActiveSession();
       if (!session || cancelled) return;
       setSessionId(session.id);
+      setActivitySlug(session.activity_slug);
       setPausedMs(session.paused_ms);
       setPoints(await getPoints(session.id));
     };
@@ -45,6 +47,11 @@ export default function ActiveSession() {
 
   const geoPoints: GeoPoint[] = points.map((p) => ({ lat: p.lat, lng: p.lng, accuracy: p.accuracy, t: p.t }));
   const summary = summarize(geoPoints, pausedMs);
+  const isSwim = activitySlug === "swimming";
+  const distValue = isSwim
+    ? String(Math.round(summary.distanceM))
+    : (summary.distanceM / 1000).toFixed(2);
+  const distUnit = isSwim ? "m" : "km";
 
   const onPauseToggle = async () => {
     if (!sessionId) return;
@@ -71,8 +78,8 @@ export default function ActiveSession() {
       <Card>
         <View style={styles.statsRow}>
           <View style={styles.stat}>
-            <Text style={styles.statValue}>{(summary.distanceM / 1000).toFixed(2)}</Text>
-            <Text style={styles.statLabel}>km</Text>
+            <Text style={styles.statValue}>{distValue}</Text>
+            <Text style={styles.statLabel}>{distUnit}</Text>
           </View>
           <View style={styles.stat}>
             <Text style={styles.statValue}>{fmtDuration(summary.movingMs)}</Text>

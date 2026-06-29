@@ -3,7 +3,7 @@
 Background GPS cannot run in Expo Go or a simulator. Build a dev client and test on a real phone outdoors.
 
 ## Prerequisites
-- [ ] Google Maps Android API key set in `app.json` (`expo.android.config.googleMaps.apiKey`).
+- [ ] Google Maps Android API key set via the `GOOGLE_MAPS_ANDROID_API_KEY` env var (a local `.env` or an EAS secret); `app.config.js` injects it into the build — do not put it in `app.json`.
 - [ ] `EXPO_PUBLIC_API_URL` points at a reachable API; API + Postgres running; user seeded.
 - [ ] Dev build: `eas build --profile development --platform android` (and/or iOS), install on device.
 

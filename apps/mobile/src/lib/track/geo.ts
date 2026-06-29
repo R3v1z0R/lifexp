@@ -52,6 +52,19 @@ export function summarize(points: GeoPoint[], pausedMs: number): SessionSummary 
   };
 }
 
+// Human-readable distance for a live/derived measurement. Swimming is shown in
+// whole meters; running/cycling/walking in km to 2dp.
+export function formatDistance(activitySlug: string, distanceM: number): string {
+  if (activitySlug === "swimming") return `${Math.round(distanceM)} m`;
+  return `${(distanceM / 1000).toFixed(2)} km`;
+}
+
+// Append the activity's distance unit to an already-derived stored value
+// (meters for swimming, km for everything else — matches derivePaceSpeed's value unit).
+export function formatValueWithUnit(activitySlug: string, value: number): string {
+  return activitySlug === "swimming" ? `${value} m` : `${value} km`;
+}
+
 export function derivePaceSpeed(
   activitySlug: string,
   distanceM: number,

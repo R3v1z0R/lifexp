@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Text, StyleSheet, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { getSession, getPoints, type TrackSession, type StoredPoint } from "../../lib/track/db";
-import { summarize, type GeoPoint } from "../../lib/track/geo";
+import { summarize, formatDistance, type GeoPoint } from "../../lib/track/geo";
 import { TrackMap } from "../../components/TrackMap";
 import { Screen } from "../../components/Screen";
 import { Card } from "../../components/Card";
@@ -28,7 +28,9 @@ export default function TrackDetail() {
       <Card>
         <Text style={styles.activity}>{session?.activity_slug ?? "…"}</Text>
         <View style={styles.row}>
-          <Text style={styles.stat}>{(summary.distanceM / 1000).toFixed(2)} km</Text>
+          <Text style={styles.stat}>
+            {session ? formatDistance(session.activity_slug, summary.distanceM) : "…"}
+          </Text>
           <Text style={styles.stat}>+{session?.final_xp ?? 0} XP</Text>
         </View>
         {session && (

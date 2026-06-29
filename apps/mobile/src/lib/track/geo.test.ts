@@ -3,6 +3,8 @@ import {
   accumulateDistance,
   summarize,
   derivePaceSpeed,
+  formatDistance,
+  formatValueWithUnit,
   type GeoPoint,
 } from "./geo";
 
@@ -77,5 +79,23 @@ describe("derivePaceSpeed", () => {
   it("guards against zero distance / zero time", () => {
     expect(derivePaceSpeed("running", 0, 600_000)).toEqual({ value: 0 });
     expect(derivePaceSpeed("running", 2000, 0)).toEqual({ value: 2 });
+  });
+});
+
+describe("formatDistance", () => {
+  it("renders km to 2dp for running/cycling/walking", () => {
+    expect(formatDistance("running", 5230)).toBe("5.23 km");
+    expect(formatDistance("walking", 0)).toBe("0.00 km");
+  });
+  it("renders whole meters for swimming", () => {
+    expect(formatDistance("swimming", 412.6)).toBe("413 m");
+    expect(formatDistance("swimming", 0)).toBe("0 m");
+  });
+});
+
+describe("formatValueWithUnit", () => {
+  it("appends km for non-swimming and m for swimming", () => {
+    expect(formatValueWithUnit("cycling", 12.5)).toBe("12.5 km");
+    expect(formatValueWithUnit("swimming", 400)).toBe("400 m");
   });
 });

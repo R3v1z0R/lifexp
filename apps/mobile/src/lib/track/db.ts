@@ -8,6 +8,7 @@ export interface TrackSession {
   started_at: number;
   ended_at: number | null;
   paused_ms: number;
+  paused_at: number | null; // epoch ms when the current pause began; null while running
   value: number | null;
   intensity_json: string | null;
   final_xp: number | null;
@@ -23,7 +24,12 @@ export interface StoredPoint {
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 function getDb(): Promise<SQLite.SQLiteDatabase> {
-  if (!dbPromise) dbPromise = SQLite.openDatabaseAsync("lifexp-track.db");
+  if (!dbPromise) {
+    dbPromise = SQLite.openDatabaseAsync("lifexp-track.db").catch((e) => {
+      dbPromise = null; // don't cache a failed open — allow a retry on the next call
+      throw e;
+    });
+  }
   return dbPromise;
 }
 
@@ -38,6 +44,7 @@ export async function initDb(): Promise<void> {
       started_at INTEGER NOT NULL,
       ended_at INTEGER,
       paused_ms INTEGER NOT NULL DEFAULT 0,
+      paused_at INTEGER,
       value REAL,
       intensity_json TEXT,
       final_xp INTEGER
@@ -52,6 +59,11 @@ export async function initDb(): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS idx_points_session ON points (session_id, t);
   `);
+  // Migration for DBs created before paused_at existed. SQLite has no
+  // "ADD COLUMN IF NOT EXISTS", so swallow the duplicate-column error.
+  await db.execAsync("ALTER TABLE sessions ADD COLUMN paused_at INTEGER").catch(() => {
+    /* column already present */
+  });
 }
 
 export async function createSession(activitySlug: string): Promise<string> {
@@ -121,6 +133,13 @@ export async function getPoints(sessionId: string): Promise<StoredPoint[]> {
 export async function setPausedMs(sessionId: string, pausedMs: number): Promise<void> {
   const db = await getDb();
   await db.runAsync("UPDATE sessions SET paused_ms = ? WHERE id = ?", pausedMs, sessionId);
+}
+
+// Persist (or clear, with null) the start of the current pause so pause accounting
+// survives a process kill while paused.
+export async function setPausedAt(sessionId: string, pausedAt: number | null): Promise<void> {
+  const db = await getDb();
+  await db.runAsync("UPDATE sessions SET paused_at = ? WHERE id = ?", pausedAt, sessionId);
 }
 
 export async function endSession(sessionId: string): Promise<void> {
