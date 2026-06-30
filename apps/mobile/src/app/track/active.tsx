@@ -23,8 +23,11 @@ export default function ActiveSession() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [activitySlug, setActivitySlug] = useState("");
   const [points, setPoints] = useState<StoredPoint[]>([]);
+  const [startedAt, setStartedAt] = useState(0);
   const [pausedMs, setPausedMs] = useState(0);
+  const [pausedAt, setPausedAt] = useState<number | null>(null);
   const [paused, setPaused] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const tick = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -42,7 +45,9 @@ export default function ActiveSession() {
       }
       setSessionId(session.id);
       setActivitySlug(session.activity_slug);
+      setStartedAt(session.started_at);
       setPausedMs(session.paused_ms);
+      setPausedAt(session.paused_at);
       setPaused(session.paused_at != null); // reflect the persisted pause state, not a stale local flag
       setPoints(await getPoints(session.id));
     };
@@ -54,8 +59,19 @@ export default function ActiveSession() {
     };
   }, []);
 
+  // Drive a smooth 1-second clock for the elapsed/moving readout. GPS fixes only
+  // land every few seconds, so deriving the time from point timestamps makes it
+  // jump in chunks; a wall-clock tick keeps it ticking each second.
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const geoPoints: GeoPoint[] = points.map((p) => ({ lat: p.lat, lng: p.lng, accuracy: p.accuracy, t: p.t }));
   const summary = summarize(geoPoints, pausedMs);
+  // Moving time as wall-clock: counts up while running, freezes at the pause start.
+  // (summary.movingMs only advances when a new GPS point lands; this ticks each second.)
+  const liveMovingMs = startedAt > 0 ? Math.max(0, (pausedAt ?? now) - startedAt - pausedMs) : 0;
   const isSwim = activitySlug === "swimming";
   const distValue = isSwim
     ? String(Math.round(summary.distanceM))
@@ -66,9 +82,14 @@ export default function ActiveSession() {
     if (!sessionId) return;
     if (paused) {
       await resumeTracking(sessionId);
+      // Mirror flushPause locally so the clock resumes instantly instead of waiting
+      // for the next poll (the poll then reconciles with the same DB values).
+      if (pausedAt != null) setPausedMs((m) => m + Math.max(0, Date.now() - pausedAt));
+      setPausedAt(null);
       setPaused(false);
     } else {
       await pauseTracking(sessionId);
+      setPausedAt(Date.now()); // freeze the clock immediately on pause
       setPaused(true);
     }
   };
@@ -91,7 +112,7 @@ export default function ActiveSession() {
             <Text style={styles.statLabel}>{distUnit}</Text>
           </View>
           <View style={styles.stat}>
-            <Text style={styles.statValue}>{fmtDuration(summary.movingMs)}</Text>
+            <Text style={styles.statValue}>{fmtDuration(liveMovingMs)}</Text>
             <Text style={styles.statLabel}>moving</Text>
           </View>
         </View>
