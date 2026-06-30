@@ -1,17 +1,25 @@
 import { Link, NavLink } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
+import { api } from "../lib/api";
 
 const NAV = [
   { to: "/", label: "Dashboard", end: true },
   { to: "/friends", label: "Friends" },
   { to: "/goals", label: "Goals" },
   { to: "/events", label: "Events" },
+  { to: "/integrations", label: "Integrations" },
   { to: "/upgrade", label: "Upgrade" },
 ];
 
 export function AppBar() {
   const { user, logout } = useAuth();
   const isAdmin = user?.role === "admin";
+  const pending = useQuery({
+    queryKey: ["imports", "pending"],
+    queryFn: () => api.imports("pending"),
+  });
+  const pendingCount = pending.data?.imports.length ?? 0;
 
   return (
     <header className="pt-6">
@@ -34,6 +42,23 @@ export function AppBar() {
         {NAV.map((item) => (
           <NavTab key={item.to} to={item.to} end={item.end} label={item.label} />
         ))}
+        <NavLink
+          to="/imports"
+          className={({ isActive }) =>
+            `relative rounded-t-lg px-3.5 py-2 text-sm font-medium transition ${
+              isActive
+                ? "text-ink after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-xp"
+                : "text-muted hover:text-ink"
+            }`
+          }
+        >
+          Imports
+          {pendingCount > 0 && (
+            <span className="ml-1 rounded-full bg-xp px-1.5 text-xs font-bold text-bg">
+              {pendingCount}
+            </span>
+          )}
+        </NavLink>
         {isAdmin && <NavTab to="/admin" label="Admin" />}
       </nav>
     </header>

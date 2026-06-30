@@ -9,6 +9,8 @@ import { Goals } from "./pages/Goals";
 import { Events } from "./pages/Events";
 import { Upgrade } from "./pages/Upgrade";
 import { Admin } from "./pages/Admin";
+import { Integrations } from "./pages/Integrations";
+import { Imports } from "./pages/Imports";
 import { TimerBanner } from "./components/TimerBanner";
 
 function Protected({ children, adminOnly }: { children: JSX.Element; adminOnly?: boolean }) {
@@ -34,6 +36,8 @@ export function App() {
       <Route path="/events" element={<Protected><Events /></Protected>} />
       <Route path="/upgrade" element={<Protected><Upgrade /></Protected>} />
       <Route path="/admin" element={<Protected adminOnly><Admin /></Protected>} />
+      <Route path="/integrations" element={<Protected><Integrations /></Protected>} />
+      <Route path="/imports" element={<Protected><Imports /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
