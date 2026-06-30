@@ -4,6 +4,7 @@ import {
   varchar,
   text,
   integer,
+  doublePrecision,
   boolean,
   timestamp,
   jsonb,
@@ -167,7 +168,7 @@ export const user_personal_bests = pgTable(
       .notNull()
       .references(() => activity_definitions.slug),
     input_key: varchar("input_key").notNull(),
-    best_value: integer("best_value").notNull(),
+    best_value: doublePrecision("best_value").notNull(),
     achieved_at: timestamp("achieved_at").defaultNow().notNull(),
   },
   (t) => ({
@@ -223,8 +224,8 @@ export const activity_logs = pgTable(
     activity_slug: varchar("activity_slug")
       .notNull()
       .references(() => activity_definitions.slug),
-    value: integer("value").notNull(),
-    raw_xp: integer("raw_xp").notNull(),
+    value: doublePrecision("value").notNull(),
+    raw_xp: doublePrecision("raw_xp").notNull(),
     intensity_score: integer("intensity_score"), // stored as integer * 100 if present
     intensity_multiplier: integer("intensity_multiplier").notNull(), // stored as integer * 100
     perk_multiplier: integer("perk_multiplier").notNull(),
@@ -349,7 +350,7 @@ export const shared_goals = pgTable(
     activity_slug: varchar("activity_slug")
       .notNull()
       .references(() => activity_definitions.slug),
-    target_value: integer("target_value").notNull(),
+    target_value: doublePrecision("target_value").notNull(),
     entry_credits: integer("entry_credits").default(0).notNull(),
     visibility: visibilityEnum("visibility").default("friends").notNull(),
     status: varchar("status").default("active").notNull(),
@@ -370,7 +371,7 @@ export const shared_goal_members = pgTable(
     user_id: uuid("user_id")
       .notNull()
       .references(() => users.id),
-    contribution_value: integer("contribution_value").default(0).notNull(),
+    contribution_value: doublePrecision("contribution_value").default(0).notNull(),
     joined_at: timestamp("joined_at").defaultNow().notNull(),
   },
   (t) => ({
@@ -413,7 +414,7 @@ export const event_participants = pgTable(
     user_id: uuid("user_id")
       .notNull()
       .references(() => users.id),
-    contribution_value: integer("contribution_value").default(0).notNull(),
+    contribution_value: doublePrecision("contribution_value").default(0).notNull(),
     rank: integer("rank"),
     bonus_xp: integer("bonus_xp").default(0).notNull(),
     joined_at: timestamp("joined_at").defaultNow().notNull(),
