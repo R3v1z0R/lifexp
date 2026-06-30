@@ -1,6 +1,7 @@
 import { db } from "../db";
 import * as schema from "../db/schema";
 import { eq, and, sql } from "drizzle-orm";
+import { logDate, dayStartIso, dateStr, previousDateStr } from "./logDates";
 import {
   computeFinalXP,
   checkLevelUp,
@@ -25,6 +26,7 @@ interface LogActivityInput {
   intensityInputs?: Record<string, number>;
   goalId?: string;
   eventParticipantId?: string;
+  occurredAt?: Date;
 }
 
 export async function logActivity(input: LogActivityInput): Promise<LogResponse> {
@@ -36,6 +38,7 @@ export async function logActivity(input: LogActivityInput): Promise<LogResponse>
       intensityInputs = {},
       goalId,
       eventParticipantId,
+      occurredAt,
     } = input;
 
     // Step 1: Load activity definition
@@ -111,10 +114,10 @@ export async function logActivity(input: LogActivityInput): Promise<LogResponse>
       cap_value: 300,
     };
 
-    // Step 8: Pre-transaction SELECT - sum today's XP for this activity
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayIso = today.toISOString();
+    // Step 8: Pre-transaction SELECT - sum today's XP for this activity.
+    // "today" is the log's own date (the backdated occurredAt, or now).
+    const when = logDate(occurredAt);
+    const todayIso = dayStartIso(when);
 
     const todayXpResult = await tx
       .select({ total: sql<number>`COALESCE(SUM(${schema.activity_logs.final_xp}), 0)` })
@@ -180,6 +183,7 @@ export async function logActivity(input: LogActivityInput): Promise<LogResponse>
         user_id: userId,
         activity_slug: activitySlug,
         value,
+        logged_at: when,
         raw_xp: xpBreakdown.raw_xp,
         intensity_score: xpBreakdown.intensity_score
           ? Math.round(xpBreakdown.intensity_score * 100)
@@ -352,8 +356,8 @@ export async function logActivity(input: LogActivityInput): Promise<LogResponse>
         .where(eq(schema.users.id, userId));
     }
 
-    // Step 15-16: Update streaks
-    const today_str = new Date().toISOString().split("T")[0];
+    // Step 15-16: Update streaks (relative to the log's own date)
+    const today_str = dateStr(when);
     const streakResult = await updateStreak(tx, userId, "activity", activitySlug, today_str);
 
     const sectionStreakResult = await updateStreak(
@@ -453,10 +457,8 @@ async function updateStreak(
     return null;
   }
 
-  // Check if consecutive day
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterday_str = yesterday.toISOString().split("T")[0];
+  // Check if consecutive day (relative to this log's own date)
+  const yesterday_str = previousDateStr(today_str);
 
   if (lastLogDate === yesterday_str) {
     newStreak++;
