@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
 import { api, ApiError, type LogResponse } from "../lib/api";
 import { AppBar } from "../components/AppBar";
+import { useTimer, formatElapsed } from "../lib/useTimer";
 
 export function LogActivity() {
   const { refresh } = useAuth();
@@ -18,6 +19,9 @@ export function LogActivity() {
   const [intensity, setIntensity] = useState<Record<string, string>>({});
   const [result, setResult] = useState<LogResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const timer = useTimer();
+  const isDuration = selected?.unit === "minutes" || selected?.unit === "hours";
 
   const intensityQuery = useQuery({
     queryKey: ["intensity", slug],
@@ -91,6 +95,39 @@ export function LogActivity() {
             ))}
           </select>
         </label>
+
+        {selected && isDuration && (
+          <div className="flex items-center justify-between rounded-xl border border-line bg-bg/40 px-4 py-3">
+            <div className="flex flex-col">
+              <span className="eyebrow">Timer</span>
+              <span className="hud text-lg text-xp">
+                {timer.running ? formatElapsed(timer.elapsedMs) : "0:00"}
+              </span>
+            </div>
+            {timer.running ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const mins = timer.stop();
+                  const minutes =
+                    selected.unit === "hours" ? Math.max(1, Math.round(mins / 60)) : mins;
+                  setValue(String(minutes));
+                }}
+                className="rounded-lg border border-xp/50 bg-xp/15 px-3 py-1.5 text-sm font-medium text-xp"
+              >
+                Stop & fill
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => timer.start(selected.name)}
+                className="rounded-lg border border-line bg-panel px-3 py-1.5 text-sm text-ink"
+              >
+                Start
+              </button>
+            )}
+          </div>
+        )}
 
         {selected && (
           <label className="flex flex-col gap-1.5">

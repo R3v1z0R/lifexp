@@ -9,6 +9,7 @@ import { Goals } from "./pages/Goals";
 import { Events } from "./pages/Events";
 import { Upgrade } from "./pages/Upgrade";
 import { Admin } from "./pages/Admin";
+import { TimerBanner } from "./components/TimerBanner";
 
 function Protected({ children, adminOnly }: { children: JSX.Element; adminOnly?: boolean }) {
   const { user, loading } = useAuth();
@@ -22,7 +23,9 @@ function Protected({ children, adminOnly }: { children: JSX.Element; adminOnly?:
 
 export function App() {
   return (
-    <Routes>
+    <>
+      <TimerBanner />
+      <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<Protected><Dashboard /></Protected>} />
       <Route path="/log" element={<Protected><LogActivity /></Protected>} />
@@ -32,6 +35,7 @@ export function App() {
       <Route path="/upgrade" element={<Protected><Upgrade /></Protected>} />
       <Route path="/admin" element={<Protected adminOnly><Admin /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
+    </>
   );
 }
