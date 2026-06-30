@@ -1,0 +1,495 @@
+Build a full-stack "LifeXP" app — a gamified life-tracking PWA with a React Native mobile companion. Use a mono-repo structure. The XP system is fully modular with independently configurable layers.
+
+## Stack
+- Backend: Node.js + Fastify, PostgreSQL (Drizzle ORM), REST + WebSocket
+- Web: React + Vite + Tailwind CSS, PWA
+- Mobile: Expo React Native
+- Auth: JWT + refresh tokens, bcrypt
+- Payments: Stripe (subscriptions + credit packs)
+- Queue: Redis + BullMQ (background jobs, crons)
+
+## Mono-repo
+/apps/api
+/apps/web
+/apps/mobile
+/packages/types
+/packages/xp-engine       ← pure functions, zero DB imports
+/packages/api-client
+
+---
+
+## Definition of Done — STOP AND ASK BEFORE PROCEEDING
+
+After completing each section below, print a DoD checklist to the terminal and wait for explicit confirmation before continuing.
+
+### DoD 1 — Database schema + migrations
+- [ ] All tables migrate cleanly from scratch via `drizzle-kit push`
+- [ ] Seed script completes without errors
+- [ ] activity_definitions, section_definitions, activity_intensity_configs, xp_multiplier_caps, streak_bonus_tiers all seeded with defaults
+- [ ] user_personal_bests table created and indexed on (user_id, activity_slug)
+- [ ] docker-compose up starts cleanly, migrations auto-run
+
+### DoD 2 — XP engine (/packages/xp-engine)
+- [ ] Unit tests pass for all exported functions
+- [ ] computeBaseXP: correct for standard rate, zero value, fractional value
+- [ ] computeIntensityScore: correct for each input_type (pace, speed, rpe, rating, count), no-input returns 1.0
+- [ ] computeIntensityMultiplier: curve interpolation correct at min, midpoint, max
+- [ ] applyPerkMultipliers: additive stacking, cap enforced, empty perks returns 1.0
+- [ ] applyStreakBonus: correct tier lookup, no streak returns 1.0
+- [ ] applyDailyXpCap: cap enforced, below cap passes through unchanged
+- [ ] Full pipeline computeFinalXP returns correct breakdown object
+- [ ] splitGoalXP: 50/50 base + proportional, 30% floor guarantee
+- [ ] resolveEvent: correct ranking and bonus distribution
+- [ ] computeSleepXP: bell curve peaks at 8h, 0 XP outside 5-10h range
+- [ ] Personal best update logic: updatePersonalBest returns new PB only if improved
+- [ ] Engine has zero side effects, zero DB imports
+
+### DoD 3 — Auth + entitlement middleware
+- [ ] Register, login, refresh, logout work with curl
+- [ ] JWT expiry and refresh rotation correct
+- [ ] checkEntitlement returns correct result for every Feature value across all three plans
+- [ ] requireEntitlement preHandler returns 403 + upgrade_url when denied
+- [ ] Rate limiting on /auth routes
+
+### DoD 4 — Core log pipeline
+- [ ] POST /logs runs full 5-layer pipeline in single DB transaction
+- [ ] activity_log stores: raw_xp, intensity_score, intensity_multiplier, perk_multiplier, streak_multiplier, final_xp, applied_perk_slugs
+- [ ] Level-up at milestone queues perk_choice — never blocks XP award
+- [ ] Perk auto-resolution cron picks option A after 7 days
+- [ ] Streak updates correctly for: first log, consecutive, same-day no-op, gap+reset, freeze token
+- [ ] Personal best updated after each log if improved
+- [ ] Shared goal contribution attributed when goal_id provided
+- [ ] Event contribution attributed when event_participant_id provided
+
+### DoD 5 — Stripe + billing
+- [ ] Stripe products and prices exist in test mode
+- [ ] Checkout session creates and redirects correctly
+- [ ] Webhook handler verifies signature, is idempotent on stripe_event_id
+- [ ] Subscription upgrade sets plan + plan_expires_at
+- [ ] Downgrade marks excess data 'paused', never deletes
+- [ ] Credit purchase adds to credit_balance, logs credit_transaction
+
+### DoD 6 — Social: friends, shared goals, events
+- [ ] Friend request → accept → feed flow end-to-end
+- [ ] Shared goal: create, invite, join, log contribution, XP split applied correctly
+- [ ] Event: create, join (entry credits deducted), log contribution, finish (ranks + bonuses awarded)
+- [ ] All data respects visibility settings
+- [ ] Entitlement enforced on: private events, group events, >1 active shared goal
+
+### DoD 7 — Admin panel
+- [ ] Admin can CRUD activity_definitions including effort_minutes_per_unit and daily_xp_cap
+- [ ] Admin can CRUD activity_intensity_configs (input fields per activity)
+- [ ] Admin can edit streak_bonus_tiers and xp_multiplier_caps
+- [ ] Admin can CRUD perk_catalogue
+- [ ] Admin can create public events
+- [ ] Changes apply immediately to new logs, no deploy needed
+- [ ] Panel inaccessible to non-admin users
+
+### DoD 8 — Web frontend
+- [ ] Dashboard loads <2s
+- [ ] Log flow shows intensity inputs appropriate to selected activity (loaded from activity_intensity_configs)
+- [ ] XP breakdown shown after submit: base + intensity bonus + perk bonus + streak bonus
+- [ ] Level-up modal with perk choice works; pending perk banner non-blocking
+- [ ] Upgrade page and inline locked states work
+- [ ] Dark mode on all screens
+
+### DoD 9 — Mobile
+- [ ] Runs on iOS simulator and Android emulator
+- [ ] All main tabs load; log flow includes intensity inputs
+- [ ] Push notification received on level-up
+- [ ] Deep links resolve
+
+---
+
+## Database schema (PostgreSQL via Drizzle)
+
+### Users and settings
+```sql
+users (
+  id UUID PK DEFAULT gen_random_uuid(),
+  username VARCHAR UNIQUE NOT NULL,
+  email VARCHAR UNIQUE NOT NULL,
+  password_hash VARCHAR NOT NULL,
+  avatar_url VARCHAR,
+  hero_level INT DEFAULT 1,
+  hero_xp INT DEFAULT 0,
+  role ENUM('user','admin') DEFAULT 'user',
+  plan ENUM('free','pro','team') DEFAULT 'free',
+  plan_expires_at TIMESTAMPTZ,
+  credit_balance INT DEFAULT 0,
+  stripe_customer_id VARCHAR,
+  created_at TIMESTAMPTZ DEFAULT now()
+)
+
+user_settings (
+  user_id UUID PK FK→users,
+  profile_visibility ENUM('public','friends','private') DEFAULT 'friends',
+  default_log_visibility ENUM('public','friends','private') DEFAULT 'friends',
+  notifications_enabled BOOL DEFAULT true,
+  timezone VARCHAR DEFAULT 'UTC'
+)
+```
+
+### Admin-configurable definitions
+
+```sql
+section_definitions (
+  id UUID PK,
+  slug VARCHAR UNIQUE NOT NULL,
+  name VARCHAR NOT NULL,
+  description TEXT,
+  color_accent VARCHAR,           -- hex, used in UI
+  icon_name VARCHAR,              -- Tabler icon name
+  display_order INT,
+  is_active BOOL DEFAULT true
+)
+
+activity_definitions (
+  id UUID PK,
+  slug VARCHAR UNIQUE NOT NULL,
+  name VARCHAR NOT NULL,
+  description TEXT,
+  section_slug VARCHAR NOT NULL FK→section_definitions,
+  unit VARCHAR NOT NULL,          -- 'km', 'pages', 'minutes', 'sessions'
+  input_type ENUM('number','duration','boolean') NOT NULL,
+  effort_minutes_per_unit NUMERIC NOT NULL,
+  -- XP per unit = effort_minutes_per_unit. The engine reads this field directly.
+  -- Perk and intensity multipliers are applied on top at runtime.
+  min_value NUMERIC DEFAULT 0,
+  max_value NUMERIC,              -- max per single log entry (input validation)
+  daily_xp_cap NUMERIC,          -- Layer 5 cap, null = no cap
+  default_goal NUMERIC,          -- suggested target shown in UI
+  icon_name VARCHAR,
+  required_plan ENUM('free','pro','team') DEFAULT 'free',
+  is_active BOOL DEFAULT true,
+  display_order INT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+)
+
+activity_intensity_configs (
+  id UUID PK,
+  activity_slug VARCHAR NOT NULL FK→activity_definitions,
+  input_key VARCHAR NOT NULL,     -- e.g. 'pace_min_per_km', 'avg_speed_kmh', 'rpe', 'interruptions', 'quality_rating'
+  label VARCHAR NOT NULL,         -- shown in UI: 'Pace (min/km)', 'Avg speed (km/h)'
+  input_type ENUM('number','integer','rating_1_5','rating_1_10') NOT NULL,
+  unit_label VARCHAR,             -- 'min/km', 'km/h', 'RPE'
+  is_optional BOOL DEFAULT true,  -- if false, required on every log
+  scoring_mode ENUM('lower_is_better','higher_is_better','target_is_better') NOT NULL,
+  score_min_value NUMERIC,        -- input value that yields score=0 (worst)
+  score_max_value NUMERIC,        -- input value that yields score=100 (best)
+  -- For 'target_is_better': score_min_value = worst deviation, score_max_value = perfect target
+  multiplier_at_score_0 NUMERIC DEFAULT 0.8,    -- minimum multiplier (bad performance)
+  multiplier_at_score_50 NUMERIC DEFAULT 1.0,   -- neutral (skipped / average)
+  multiplier_at_score_100 NUMERIC DEFAULT 1.5,  -- maximum multiplier (personal best)
+  vs_personal_best BOOL DEFAULT false,
+  -- If true: score is computed relative to user_personal_bests.best_value
+  -- score = 100 means matched or beat personal best
+  -- score = 0 means performed at score_min_value below personal best
+  display_order INT DEFAULT 0,
+  UNIQUE (activity_slug, input_key)
+)
+
+streak_bonus_tiers (
+  id UUID PK,
+  min_streak_days INT NOT NULL,   -- tier activates at this streak length
+  bonus_percent NUMERIC NOT NULL, -- additive bonus: 5.0 = +5%
+  description VARCHAR,            -- '7-day streak +5%'
+  is_active BOOL DEFAULT true
+)
+-- Default seed: 3→+2%, 7→+5%, 30→+10%, 90→+15%, 365→+25%
+
+xp_multiplier_caps (
+  id UUID PK,
+  scope ENUM('perk_stack','intensity','streak','total') NOT NULL,
+  max_multiplier NUMERIC NOT NULL,  -- hard ceiling for that layer
+  description VARCHAR
+)
+-- Default seed: perk_stack→2.0, intensity→1.5, streak→1.25, total→3.0
+```
+
+### Personal bests
+
+```sql
+user_personal_bests (
+  id UUID PK,
+  user_id UUID NOT NULL FK→users,
+  activity_slug VARCHAR NOT NULL FK→activity_definitions,
+  input_key VARCHAR NOT NULL,     -- matches activity_intensity_configs.input_key
+  best_value NUMERIC NOT NULL,
+  achieved_at TIMESTAMPTZ NOT NULL,
+  UNIQUE (user_id, activity_slug, input_key)
+)
+```
+
+### Progress
+
+```sql
+sections (
+  id UUID PK,
+  user_id UUID FK→users,
+  section_slug VARCHAR FK→section_definitions,
+  level INT DEFAULT 1,
+  xp INT DEFAULT 0,
+  status ENUM('active','paused') DEFAULT 'active',
+  UNIQUE (user_id, section_slug)
+)
+
+activities (
+  id UUID PK,
+  user_id UUID FK→users,
+  activity_slug VARCHAR FK→activity_definitions,
+  level INT DEFAULT 1,
+  xp INT DEFAULT 0,
+  UNIQUE (user_id, activity_slug)
+)
+
+activity_logs (
+  id UUID PK,
+  user_id UUID FK→users,
+  activity_slug VARCHAR FK→activity_definitions,
+  goal_id UUID NULLABLE FK→shared_goals,
+  event_participant_id UUID NULLABLE FK→event_participants,
+  value NUMERIC NOT NULL,
+  unit VARCHAR NOT NULL,
+  intensity_inputs JSONB DEFAULT '{}',    -- raw inputs: {"pace_min_per_km": 5.2, "rpe": 7}
+  intensity_score NUMERIC,                -- 0-100, null if no inputs provided
+  intensity_multiplier NUMERIC DEFAULT 1.0,
+  raw_xp NUMERIC NOT NULL,               -- base XP before any multipliers
+  perk_multiplier NUMERIC DEFAULT 1.0,
+  streak_multiplier NUMERIC DEFAULT 1.0,
+  final_xp NUMERIC NOT NULL,             -- after all layers + cap
+  applied_perk_slugs VARCHAR[] DEFAULT '{}',
+  note TEXT,
+  visibility ENUM('public','friends','private') NOT NULL,
+  logged_at TIMESTAMPTZ DEFAULT now()
+)
+```
+
+### Social, events, goals (unchanged structure from previous spec — include all tables)
+[friendships, shared_goals, shared_goal_members, events, event_participants]
+
+### Rewards (unchanged from previous spec)
+[perks, user_perks, perk_choices, achievements, user_achievements, streaks]
+
+### Monetization (unchanged from previous spec)
+[credit_transactions, stripe_webhooks_log, cosmetics, user_cosmetics]
+
+### Notifications (unchanged from previous spec)
+
+---
+
+## XP engine (/packages/xp-engine)
+
+Pure TypeScript. Zero DB imports. Every function takes only plain data — all config is passed in as arguments, never imported from elsewhere.
+
+### Types
+
+```ts
+interface ActivityDefinition {
+  slug: string
+  effortMinutesPerUnit: number
+  dailyXpCap: number | null
+}
+
+interface IntensityConfig {
+  inputKey: string
+  scoringMode: 'lower_is_better' | 'higher_is_better' | 'target_is_better'
+  scoreMinValue: number
+  scoreMaxValue: number
+  multiplierAtScore0: number
+  multiplierAtScore50: number
+  multiplierAtScore100: number
+  vsPersonalBest: boolean
+}
+
+interface PersonalBest {
+  inputKey: string
+  bestValue: number
+}
+
+interface Perk {
+  slug: string
+  modifierType: 'xp_multiplier' | 'streak_protect' | 'unlock' | 'cosmetic'
+  modifierValue: number          // e.g. 0.10 = +10%
+  targetScope: 'activity' | 'section' | 'global'
+  targetSlug: string | null
+}
+
+interface StreakBonusTier {
+  minStreakDays: number
+  bonusPercent: number
+}
+
+interface XpMultiplierCap {
+  scope: 'perk_stack' | 'intensity' | 'streak' | 'total'
+  maxMultiplier: number
+}
+
+interface XpBreakdown {
+  rawXP: number                  // value × effortMinutesPerUnit
+  intensityScore: number | null  // 0-100, null if no inputs
+  intensityMultiplier: number    // 1.0 if no inputs
+  perkMultiplier: number         // additive stack, capped
+  streakMultiplier: number       // from streak bonus tier
+  preCap: number                 // after all multipliers
+  finalXP: number                // after daily cap
+  appliedPerkSlugs: string[]
+  newPersonalBests: { inputKey: string; value: number }[]
+}
+```
+
+### Functions
+
+```ts
+// Layer 1: Base XP
+export function computeBaseXP(
+  value: number,
+  def: ActivityDefinition
+): number
+// value × def.effortMinutesPerUnit
+
+// Layer 2a: Score a single intensity input (0-100)
+export function scoreIntensityInput(
+  inputValue: number,
+  config: IntensityConfig,
+  personalBest: PersonalBest | null
+): number
+// If vsPersonalBest=true and no PB yet: return 50 (neutral)
+// Interpolates linearly between scoreMinValue→0 and scoreMaxValue→100
+// Clamps result to [0, 100]
+// lower_is_better: invert the direction before interpolating
+
+// Layer 2b: Average multiple input scores → single intensity score
+export function computeIntensityScore(
+  inputs: Record<string, number>,
+  configs: IntensityConfig[],
+  personalBests: PersonalBest[]
+): number | null
+// Returns null if inputs is empty (no intensity data provided)
+// Returns average of all scored inputs that are present in inputs
+
+// Layer 2c: Map score (0-100) to multiplier via piecewise linear interpolation
+export function computeIntensityMultiplier(
+  score: number | null,
+  configs: IntensityConfig[],  // used to average the per-config multiplier curves
+  cap: number                  // from xp_multiplier_caps where scope='intensity'
+): number
+// score=null → 1.0 (neutral, user skipped intensity)
+// score=0   → average of configs[].multiplierAtScore0
+// score=50  → average of configs[].multiplierAtScore50 (should equal 1.0 by convention)
+// score=100 → average of configs[].multiplierAtScore100
+// Clamp to [0, cap]
+
+// Layer 3: Perk multipliers (additive stacking)
+export function applyPerkMultipliers(
+  perks: Perk[],
+  activitySlug: string,
+  sectionSlug: string,
+  cap: number                  // from xp_multiplier_caps where scope='perk_stack'
+): { multiplier: number; appliedSlugs: string[] }
+// Sum modifier_value of all matching perks (activity + section + global scope)
+// totalMultiplier = 1.0 + sum(matching perk modifierValues)
+// Clamp to [1.0, cap]
+
+// Layer 4: Streak bonus (additive)
+export function applyStreakBonus(
+  currentStreak: number,
+  tiers: StreakBonusTier[],
+  cap: number                  // from xp_multiplier_caps where scope='streak'
+): number
+// Find the highest tier where currentStreak >= minStreakDays
+// multiplier = 1.0 + (tier.bonusPercent / 100)
+// No matching tier → 1.0
+// Clamp to [1.0, cap]
+
+// Layer 5: Daily XP cap
+export function applyDailyXpCap(
+  xp: number,
+  alreadyEarnedTodayForActivity: number,
+  cap: number | null
+): number
+// If cap is null: return xp unchanged
+// Return min(xp, max(0, cap - alreadyEarnedTodayForActivity))
+
+// Full pipeline
+export function computeFinalXP(input: {
+  value: number
+  def: ActivityDefinition
+  intensityInputs: Record<string, number>
+  intensityConfigs: IntensityConfig[]
+  personalBests: PersonalBest[]
+  activePerks: Perk[]
+  sectionSlug: string
+  currentStreak: number
+  streakTiers: StreakBonusTier[]
+  caps: XpMultiplierCap[]
+  alreadyEarnedTodayForActivity: number
+}): XpBreakdown
+
+// Personal best update (pure — call after computeFinalXP)
+export function updatePersonalBests(
+  inputs: Record<string, number>,
+  configs: IntensityConfig[],
+  existingBests: PersonalBest[]
+): PersonalBest[]
+// Returns only the bests that improved (empty array if none)
+// Caller persists these to user_personal_bests
+
+// Shared goal XP split
+export function splitGoalXP(
+  totalXP: number,
+  contributions: { userId: string; value: number }[],
+  floorPercent?: number    // default 0.30
+): { userId: string; xp: number }[]
+
+// Event resolution
+export function resolveEvent(
+  event: { bonusXp: number; rewardCredits: number },
+  participants: { userId: string; contributionValue: number }[]
+): { userId: string; rank: number; bonusXP: number; creditReward: number }[]
+
+// Sleep XP (special bell curve)
+export function computeSleepXP(hours: number): number
+// 0 XP outside [5, 10] range
+// Peaks at 8h = 8 XP
+// Quadratic bell curve between min and peak, and peak and max
+
+// Level curve
+export function xpToNextLevel(level: number, base?: number): number
+// Math.floor((base ?? 50) * Math.pow(level, 1.6))
+
+export function checkLevelUp(
+  currentXP: number,
+  currentLevel: number,
+  base?: number
+): { leveled: boolean; newLevel: number; remainingXP: number }
+
+// Perk choice generation
+export function getPerkChoices(
+  triggerType: 'activity_levelup' | 'section_levelup' | 'hero_levelup',
+  triggerSlug: string,
+  level: number,
+  catalogue: Perk[]
+): [Perk, Perk] | null
+```
+
+### Default intensity config seed data
+
+Seed these into activity_intensity_configs:
+
+| activity_slug  | input_key         | input_type | scoring_mode       | score_min | score_max | mult@0 | mult@50 | mult@100 | vs_pb |
+|----------------|-------------------|------------|--------------------|-----------|-----------|--------|---------|----------|-------|
+| running        | pace_min_per_km   | number     | lower_is_better    | 8.0       | 3.5       | 0.8    | 1.0     | 1.5      | true  |
+| cycling        | avg_speed_kmh     | number     | higher_is_better   | 10        | 40        | 0.8    | 1.0     | 1.5      | true  |
+| swimming       | pace_per_100m_sec | number     | lower_is_better    | 180       | 60        | 0.8    | 1.0     | 1.5      | true  |
+| focus_session  | interruptions     | integer    | lower_is_better    | 5         | 0         | 0.8    | 1.0     | 1.3      | false |
+| deep_work      | interruptions     | integer    | lower_is_better    | 5         | 0         | 0.8    | 1.0     | 1.3      | false |
+| reading        | quality_rating    | rating_1_5 | higher_is_better   | 1         | 5         | 1.0    | 1.0     | 1.4      | false |
+| meditation     | quality_rating    | rating_1_5 | higher_is_better   | 1         | 5         | 0.9    | 1.0     | 1.3      | false |
+| workout        | rpe               | rating_1_10| higher_is_better   | 1         | 10        | 0.8    | 1.0     | 1.4      | false |
+| walking        | pace_min_per_km   | number     | lower_is_better    | 20.0      | 8.0       | 0.8    | 1.0     | 1.3      | true  |
+
+---
+
+## Core log pipeline (API — single DB transaction)

@@ -1,0 +1,9 @@
+---
+
+Three things worth knowing before you run this:
+
+The `vs_personal_best` flag in intensity configs is the subtlest but most important field — when true, a beginner running 6 min/km and an athlete running 3:30 min/km both get score=100 if they beat their own best. Without this, the system would always reward the faster runner more regardless of effort relative to their baseline.
+
+The `intensity_inputs JSONB` column on activity_logs stores the raw inputs exactly as submitted, which means you can always retroactively re-score historical logs if you tune the intensity configs later — the raw data is preserved.
+
+The `alreadyEarnedTodayForActivity` parameter in the pipeline is calculated as a pre-transaction SELECT sum — this prevents someone from logging the same activity 20 times in one day and hitting the cap exactly right by making the cap enforcement deterministic.

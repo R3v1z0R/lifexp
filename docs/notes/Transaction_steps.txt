@@ -1,0 +1,47 @@
+Transaction steps:
+
+1. Load activity_definitions row for activitySlug
+2. Validate value against min_value / max_value
+3. Load activity_intensity_configs for activitySlug
+4. Load user_personal_bests for (userId, activitySlug)
+5. Load user's active perks from user_perks JOIN perks
+6. Load current streak for (userId, activity, activitySlug)
+7. Load streak_bonus_tiers and xp_multiplier_caps from DB
+8. Load today's already-earned XP for this activity (SUM of today's logs)
+9. Call computeFinalXP() → XpBreakdown
+10. Call updatePersonalBests() → persist any new personal bests to user_personal_bests
+11. Insert activity_log with full XpBreakdown fields stored
+12. UPDATE activities.xp += finalXP → checkLevelUp → if leveled:
+    - UPDATE activities.level
+    - If milestone level → getPerkChoices → if not null:
+      - INSERT perk_choices (status='pending', expires_at=now()+7d)
+      - INSERT notification (type='perk_choice_pending')
+      - XP already awarded — this never blocks
+13. Propagate: UPDATE sections.xp += finalXP → same level-up pattern
+14. Propagate: UPDATE users.hero_xp += finalXP → same level-up pattern
+15. Update streak (activity scope)
+16. Update streak (section scope)
+17. If goalId: UPDATE shared_goal_members.contribution_value += value WHERE goal_id=goalId AND user_id=userId
+18. If eventParticipantId: UPDATE event_participants.contribution_value += value WHERE id=eventParticipantId
+19. COMMIT
+
+After commit (async via BullMQ):
+- Achievement checker job for this userId
+- If any personal best improved: insert 'personal_best' notification
+
+Return: {
+  xpBreakdown: XpBreakdown,       -- full breakdown for UI display
+  activityLevelUp: LevelUpEvent | null,
+  sectionLevelUp: LevelUpEvent | null,
+  heroLevelUp: LevelUpEvent | null,
+  pendingPerkChoices: PerkChoice[],
+  streakUpdated: StreakResult,
+  personalBestsImproved: { inputKey: string; label: string; oldValue: number; newValue: number }[]
+}
+
+Background cron (hourly via BullMQ):
+- SELECT perk_choices WHERE status='pending' AND expires_at < now()
+  → set chosen_perk_slug = option_a_perk_slug, status = 'auto_resolved'
+  → INSERT user_perks
+- SELECT perk_choices WHERE status='pending' AND expires_at BETWEEN now() AND now()+24h
+  → INSERT 'perk_choice_expiring' notification (once per choice)

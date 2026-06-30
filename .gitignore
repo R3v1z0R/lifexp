@@ -17,3 +17,10 @@ coverage/
 .pnpm-store/
 .claude/
 .playwright-mcp/
+
+# Design-sync / build tooling outputs
+.ds-sync/
+ds-bundle/
+.ds-compiled.css
+dev-dist/
+.mcp.json
