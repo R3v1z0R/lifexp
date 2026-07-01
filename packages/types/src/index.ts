@@ -222,7 +222,8 @@ export type Feature =
   | "GROUP_EVENTS"
   | "MULTIPLE_SHARED_GOALS"
   | "ADVANCED_ANALYTICS"
-  | "TEAM_FEATURES";
+  | "TEAM_FEATURES"
+  | "CLOUD_IMPORT";
 
 export const FEATURE_GATES: Record<Feature, ("free" | "pro" | "team")[]> = {
   PRIVATE_EVENTS: ["pro", "team"],
@@ -230,6 +231,7 @@ export const FEATURE_GATES: Record<Feature, ("free" | "pro" | "team")[]> = {
   MULTIPLE_SHARED_GOALS: ["pro", "team"],
   ADVANCED_ANALYTICS: ["pro", "team"],
   TEAM_FEATURES: ["team"],
+  CLOUD_IMPORT: ["pro", "team"],
 };
 
 // Auth

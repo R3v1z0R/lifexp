@@ -22,6 +22,9 @@ export const perkChoiceStatusEnum = pgEnum("perk_choice_status", ["pending", "ch
 export const streakScopeEnum = pgEnum("streak_scope", ["activity", "section"]);
 export const eventStatusEnum = pgEnum("event_status", ["upcoming", "ongoing", "completed"]);
 export const platformEnum = pgEnum("device_platform", ["ios", "android"]);
+export const providerEnum = pgEnum("provider", ["strava"]);
+export const connectionStatusEnum = pgEnum("connection_status", ["active", "needs_reauth"]);
+export const importStatusEnum = pgEnum("import_status", ["pending", "accepted", "dismissed"]);
 
 // Users
 export const users = pgTable(
@@ -515,5 +518,53 @@ export const user_cosmetics = pgTable(
   },
   (t) => ({
     pk: primaryKey({ columns: [t.user_id, t.cosmetic_id] }),
+  })
+);
+
+export const provider_connections = pgTable(
+  "provider_connections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    provider: providerEnum("provider").notNull(),
+    access_token: text("access_token").notNull(),
+    refresh_token: text("refresh_token").notNull(),
+    token_expires_at: timestamp("token_expires_at").notNull(),
+    scopes: text("scopes"),
+    external_athlete_id: varchar("external_athlete_id"),
+    status: connectionStatusEnum("status").default("active").notNull(),
+    connected_at: timestamp("connected_at").defaultNow().notNull(),
+    last_synced_at: timestamp("last_synced_at"),
+  },
+  (t) => ({
+    userProviderIdx: uniqueIndex().on(t.user_id, t.provider),
+  })
+);
+
+export const imported_activities = pgTable(
+  "imported_activities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    provider: providerEnum("provider").notNull(),
+    external_id: varchar("external_id").notNull(),
+    raw_payload: jsonb("raw_payload").notNull(),
+    occurred_at: timestamp("occurred_at").notNull(),
+    provider_type: varchar("provider_type").notNull(),
+    mapped_activity_slug: varchar("mapped_activity_slug"),
+    value: doublePrecision("value"),
+    intensity_inputs: jsonb("intensity_inputs"),
+    status: importStatusEnum("status").default("pending").notNull(),
+    log_id: uuid("log_id").references(() => activity_logs.id),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+    updated_at: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    providerExternalIdx: uniqueIndex().on(t.provider, t.external_id),
+    userStatusIdx: index().on(t.user_id, t.status),
   })
 );

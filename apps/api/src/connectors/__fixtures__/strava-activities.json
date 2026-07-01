@@ -1,0 +1,19 @@
+[
+  {
+    "id": 987654321,
+    "type": "Run",
+    "start_date": "2026-03-10T08:00:00Z",
+    "distance": 5200.0,
+    "moving_time": 1620,
+    "average_heartrate": 150.0,
+    "average_speed": 3.21
+  },
+  {
+    "id": 987654322,
+    "type": "Ride",
+    "start_date": "2026-03-11T17:30:00Z",
+    "distance": 21000.0,
+    "moving_time": 3000,
+    "average_speed": 7.0
+  }
+]
