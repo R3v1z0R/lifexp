@@ -6,6 +6,8 @@ import { useAuth } from "../../lib/auth";
 import { Screen } from "../../components/Screen";
 import { Card } from "../../components/Card";
 import { XpResultCard } from "../../components/XpResultCard";
+import { useTimer } from "../../lib/useTimer";
+import { formatElapsed } from "../../lib/timer";
 import { colors, fonts, spacing, radii } from "../../theme";
 
 export default function Log() {
@@ -20,6 +22,9 @@ export default function Log() {
   const [intensity, setIntensity] = useState<Record<string, string>>({});
   const [result, setResult] = useState<LogResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const timer = useTimer();
+  const isDuration = selected?.unit === "minutes" || selected?.unit === "hours";
 
   const intensityQuery = useQuery({
     queryKey: ["intensity", slug],
@@ -69,6 +74,32 @@ export default function Log() {
             </Pressable>
           ))}
         </View>
+
+        {selected && isDuration && (
+          <View style={styles.timerRow}>
+            <View>
+              <Text style={styles.label}>Timer</Text>
+              <Text style={styles.timerValue}>
+                {timer.running ? formatElapsed(timer.elapsedMs) : "0:00"}
+              </Text>
+            </View>
+            {timer.running ? (
+              <Pressable
+                style={styles.timerStop}
+                onPress={async () => {
+                  const measured = await timer.stop(selected.unit);
+                  if (measured !== null) setValue(String(measured));
+                }}
+              >
+                <Text style={styles.timerStopText}>Stop & fill</Text>
+              </Pressable>
+            ) : (
+              <Pressable style={styles.timerStart} onPress={() => timer.start(selected.name)}>
+                <Text style={styles.timerStartText}>Start</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
 
         {selected && (
           <>
@@ -134,4 +165,34 @@ const styles = StyleSheet.create({
   buttonText: { color: colors.bg, fontFamily: fonts.bodyBold, fontSize: 16 },
   muted: { fontFamily: fonts.body, color: colors.muted },
   error: { color: colors.danger, fontFamily: fonts.body, marginTop: spacing.sm },
+  timerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  timerValue: { fontFamily: fonts.hud, color: colors.xp, fontSize: 20 },
+  timerStart: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.panel,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  timerStartText: { fontFamily: fonts.bodyBold, color: colors.ink },
+  timerStop: {
+    borderWidth: 1,
+    borderColor: colors.xp,
+    backgroundColor: colors.panel,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  timerStopText: { fontFamily: fonts.bodyBold, color: colors.xp },
 });
