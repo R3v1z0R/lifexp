@@ -125,3 +125,35 @@ describe("imports + integrations endpoints", () => {
     expect(fetchMock.mock.calls[0][1].method).toBe("DELETE");
   });
 });
+
+describe("social + billing + admin endpoints", () => {
+  it("searchUsers() URL-encodes the query", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(jsonResponse(200, { users: [] }));
+    global.fetch = fetchMock as any;
+
+    await api.searchUsers("a b&c");
+    expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:3000/users/search?q=a%20b%26c");
+  });
+
+  it("checkout() posts the subscription body verbatim", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(jsonResponse(200, { url: "https://pay" }));
+    global.fetch = fetchMock as any;
+
+    await api.checkout({ kind: "subscription", plan: "pro" });
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:3000/billing/checkout");
+    expect(opts.method).toBe("POST");
+    expect(JSON.parse(opts.body)).toEqual({ kind: "subscription", plan: "pro" });
+  });
+
+  it("adminUpdate() PATCHes the entity path with id", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(jsonResponse(200, {}));
+    global.fetch = fetchMock as any;
+
+    await api.adminUpdate("perks", "focus", { multiplier: 2 });
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:3000/admin/perks/focus");
+    expect(opts.method).toBe("PATCH");
+    expect(JSON.parse(opts.body)).toEqual({ multiplier: 2 });
+  });
+});

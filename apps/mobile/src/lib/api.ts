@@ -146,6 +146,66 @@ export const api = {
       body: JSON.stringify({ expoPushToken }),
     }),
 
+  // ── Friends ─────────────────────────────────────────────────────────
+  friends: () => request<{ friends: Friend[] }>("/friends"),
+  friendRequests: () => request<{ requests: FriendRequest[] }>("/friends/requests"),
+  feed: () => request<{ feed: FeedItem[] }>("/friends/feed"),
+  searchUsers: (q: string) =>
+    request<{ users: SearchUser[] }>(`/users/search?q=${encodeURIComponent(q)}`),
+  sendFriendRequest: (addresseeId: string) =>
+    request<{ id: string; status: string }>("/friends/request", {
+      method: "POST",
+      body: JSON.stringify({ addresseeId }),
+    }),
+  acceptFriendRequest: (id: string) =>
+    request<{ id: string; status: string }>(`/friends/accept/${id}`, { method: "POST" }),
+
+  // ── Goals ───────────────────────────────────────────────────────────
+  goals: () => request<{ goals: Goal[] }>("/goals"),
+  createGoal: (body: { activitySlug: string; targetValue: number; visibility?: Visibility }) =>
+    request<Goal>("/goals", { method: "POST", body: JSON.stringify(body) }),
+  joinGoal: (id: string) =>
+    request<{ goalId: string; joined: boolean }>(`/goals/${id}/join`, { method: "POST" }),
+
+  // ── Events ──────────────────────────────────────────────────────────
+  events: () => request<{ events: EventItem[] }>("/events"),
+  createEvent: (body: {
+    title: string;
+    activitySlug: string;
+    startAt: string;
+    endAt: string;
+    entryCredits?: number;
+    visibility?: Visibility;
+    isPublic?: boolean;
+  }) => request<EventItem>("/events", { method: "POST", body: JSON.stringify(body) }),
+  joinEvent: (id: string) => request<unknown>(`/events/${id}/join`, { method: "POST" }),
+  finishEvent: (id: string) =>
+    request<{ eventId: string; status: string; results: EventResult[] }>(
+      `/events/${id}/finish`,
+      { method: "POST" },
+    ),
+
+  // ── Billing ─────────────────────────────────────────────────────────
+  checkout: (
+    body: { kind: "subscription"; plan: "pro" | "team" } | { kind: "credits"; pack: string },
+  ) => request<{ url: string }>("/billing/checkout", { method: "POST", body: JSON.stringify(body) }),
+
+  // ── Admin ───────────────────────────────────────────────────────────
+  adminList: (path: string) =>
+    request<{ items: Record<string, unknown>[] }>(`/admin/${path}`),
+  adminCreate: (path: string, body: Record<string, unknown>) =>
+    request<Record<string, unknown>>(`/admin/${path}`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  adminUpdate: (path: string, id: string, body: Record<string, unknown>) =>
+    request<Record<string, unknown>>(`/admin/${path}/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  adminDelete: (path: string, id: string) =>
+    request<{ deleted: boolean }>(`/admin/${path}/${id}`, { method: "DELETE" }),
+
   // ── Integrations (cloud import; connect/sync are Pro-gated server-side) ──
   integrations: () => request<{ connections: Connection[] }>("/integrations"),
   connectUrl: (provider: string) =>
@@ -187,4 +247,68 @@ export interface ImportItem {
   mapped_activity_slug: string | null;
   value: number | null;
   status: "pending" | "accepted" | "dismissed";
+}
+
+export type Visibility = "public" | "friends" | "private";
+
+export interface Friend {
+  id: string;
+  username: string;
+  hero_level: number;
+  avatar_url: string | null;
+}
+
+export interface FriendRequest {
+  id: string;
+  requester_id: string;
+  username: string;
+  hero_level: number;
+  created_at: string;
+}
+
+export interface FeedItem {
+  id: string;
+  user_id: string;
+  username: string;
+  activity_slug: string;
+  value: number;
+  final_xp: number;
+  logged_at: string;
+}
+
+export interface SearchUser {
+  id: string;
+  username: string;
+  hero_level: number;
+}
+
+export interface Goal {
+  id: string;
+  creator_id: string;
+  activity_slug: string;
+  target_value: number;
+  entry_credits: number;
+  visibility: Visibility;
+  status: string;
+  created_at: string;
+}
+
+export interface EventItem {
+  id: string;
+  creator_id: string;
+  title: string;
+  activity_slug: string;
+  start_at: string;
+  end_at: string;
+  entry_credits: number;
+  visibility: Visibility;
+  is_public: boolean;
+  status: string;
+  created_at: string;
+}
+
+export interface EventResult {
+  user_id: string;
+  rank: number;
+  bonus_xp: number;
 }

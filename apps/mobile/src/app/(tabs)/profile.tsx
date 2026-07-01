@@ -74,6 +74,32 @@ export default function Profile() {
       </Card>
 
       <Card>
+        <Link href="/more/friends" style={styles.navRow}>
+          <Text style={styles.rowLabel}>Friends</Text>
+        </Link>
+        <View style={styles.divider} />
+        <Link href="/more/goals" style={styles.navRow}>
+          <Text style={styles.rowLabel}>Goals</Text>
+        </Link>
+        <View style={styles.divider} />
+        <Link href="/more/events" style={styles.navRow}>
+          <Text style={styles.rowLabel}>Events</Text>
+        </Link>
+        <View style={styles.divider} />
+        <Link href="/more/upgrade" style={styles.navRow}>
+          <Text style={styles.rowLabel}>Upgrade</Text>
+        </Link>
+        {user?.role === "admin" && (
+          <>
+            <View style={styles.divider} />
+            <Link href="/more/admin" style={styles.navRow}>
+              <Text style={styles.rowLabel}>Admin</Text>
+            </Link>
+          </>
+        )}
+      </Card>
+
+      <Card>
         <Link href="/import" style={styles.navRow}>
           <Text style={styles.rowLabel}>Integrations</Text>
         </Link>
