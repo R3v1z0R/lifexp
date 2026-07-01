@@ -75,3 +75,53 @@ describe("request refresh-on-401", () => {
     expect(await tokenStore.getRefresh()).toBeNull();
   });
 });
+
+describe("imports + integrations endpoints", () => {
+  it("imports() requests the review queue filtered by status", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(jsonResponse(200, { imports: [] }));
+    global.fetch = fetchMock as any;
+
+    await api.imports("pending");
+    expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:3000/imports?status=pending");
+  });
+
+  it("acceptImport() posts an empty body for an already-mapped row", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(jsonResponse(200, {}));
+    global.fetch = fetchMock as any;
+
+    await api.acceptImport("imp-1");
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:3000/imports/imp-1/accept");
+    expect(opts.method).toBe("POST");
+    expect(JSON.parse(opts.body)).toEqual({});
+  });
+
+  it("acceptImport() includes the chosen activitySlug for an unmapped row", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(jsonResponse(200, {}));
+    global.fetch = fetchMock as any;
+
+    await api.acceptImport("imp-2", "running");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ activitySlug: "running" });
+  });
+
+  it("syncProvider() POSTs to the provider sync endpoint", async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue(jsonResponse(200, { imported: 3, pending: 2 }));
+    global.fetch = fetchMock as any;
+
+    const res = await api.syncProvider("strava");
+    expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:3000/integrations/strava/sync");
+    expect(fetchMock.mock.calls[0][1].method).toBe("POST");
+    expect(res).toEqual({ imported: 3, pending: 2 });
+  });
+
+  it("disconnect() DELETEs the provider connection", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(jsonResponse(200, { disconnected: true }));
+    global.fetch = fetchMock as any;
+
+    await api.disconnect("strava");
+    expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:3000/integrations/strava");
+    expect(fetchMock.mock.calls[0][1].method).toBe("DELETE");
+  });
+});

@@ -145,4 +145,46 @@ export const api = {
       method: "DELETE",
       body: JSON.stringify({ expoPushToken }),
     }),
+
+  // ── Integrations (cloud import; connect/sync are Pro-gated server-side) ──
+  integrations: () => request<{ connections: Connection[] }>("/integrations"),
+  connectUrl: (provider: string) =>
+    request<{ url: string }>(`/integrations/${provider}/connect`),
+  syncProvider: (provider: string) =>
+    request<{ imported: number; pending: number }>(`/integrations/${provider}/sync`, {
+      method: "POST",
+    }),
+  disconnect: (provider: string) =>
+    request<{ disconnected: boolean }>(`/integrations/${provider}`, { method: "DELETE" }),
+
+  // ── Imports (review inbox; free for all users) ──────────────────────
+  imports: (status = "pending") =>
+    request<{ imports: ImportItem[] }>(`/imports?status=${status}`),
+  acceptImport: (id: string, activitySlug?: string) =>
+    request<unknown>(`/imports/${id}/accept`, {
+      method: "POST",
+      body: JSON.stringify(activitySlug ? { activitySlug } : {}),
+    }),
+  acceptAllImports: () =>
+    request<{ accepted: number }>("/imports/accept", { method: "POST" }),
+  dismissImport: (id: string) =>
+    request<{ dismissed: boolean }>(`/imports/${id}/dismiss`, { method: "POST" }),
 };
+
+export interface Connection {
+  provider: string;
+  status: "active" | "needs_reauth";
+  connected_at: string;
+  last_synced_at: string | null;
+}
+
+export interface ImportItem {
+  id: string;
+  provider: string;
+  external_id: string;
+  occurred_at: string;
+  provider_type: string;
+  mapped_activity_slug: string | null;
+  value: number | null;
+  status: "pending" | "accepted" | "dismissed";
+}
