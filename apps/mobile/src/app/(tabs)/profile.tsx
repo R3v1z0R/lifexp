@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Text, StyleSheet, Pressable, Switch, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "expo-router";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { registerForPush, getStoredPushToken } from "../../lib/push";
@@ -11,6 +12,11 @@ import { colors, fonts, spacing, radii } from "../../theme";
 export default function Profile() {
   const { user, logout } = useAuth();
   const billingQuery = useQuery({ queryKey: ["billing"], queryFn: api.billingMe });
+  const pendingQuery = useQuery({
+    queryKey: ["imports", "pending"],
+    queryFn: () => api.imports("pending"),
+  });
+  const pendingCount = pendingQuery.data?.imports.length ?? 0;
   const [pushOn, setPushOn] = useState(false);
 
   // Try to register for push on first mount (no-op if already denied or no dev build).
@@ -67,6 +73,45 @@ export default function Profile() {
         <Text style={styles.muted}>Level-up and perk-choice alerts on this device.</Text>
       </Card>
 
+      <Card>
+        <Link href="/more/friends" style={styles.navRow}>
+          <Text style={styles.rowLabel}>Friends</Text>
+        </Link>
+        <View style={styles.divider} />
+        <Link href="/more/goals" style={styles.navRow}>
+          <Text style={styles.rowLabel}>Goals</Text>
+        </Link>
+        <View style={styles.divider} />
+        <Link href="/more/events" style={styles.navRow}>
+          <Text style={styles.rowLabel}>Events</Text>
+        </Link>
+        <View style={styles.divider} />
+        <Link href="/more/upgrade" style={styles.navRow}>
+          <Text style={styles.rowLabel}>Upgrade</Text>
+        </Link>
+        {user?.role === "admin" && (
+          <>
+            <View style={styles.divider} />
+            <Link href="/more/admin" style={styles.navRow}>
+              <Text style={styles.rowLabel}>Admin</Text>
+            </Link>
+          </>
+        )}
+      </Card>
+
+      <Card>
+        <Link href="/import" style={styles.navRow}>
+          <Text style={styles.rowLabel}>Integrations</Text>
+        </Link>
+        <View style={styles.divider} />
+        <Link href="/import/review" style={styles.navRow}>
+          <Text style={styles.rowLabel}>
+            Import review
+            {pendingCount > 0 ? <Text style={styles.badge}>  {pendingCount}</Text> : null}
+          </Text>
+        </Link>
+      </Card>
+
       <Pressable style={styles.signOut} onPress={onSignOut}>
         <Text style={styles.signOutText}>Sign out</Text>
       </Pressable>
@@ -81,6 +126,9 @@ const styles = StyleSheet.create({
   plan: { fontFamily: fonts.body, color: colors.xp, marginTop: spacing.sm },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   rowLabel: { fontFamily: fonts.bodyBold, color: colors.ink },
+  navRow: { paddingVertical: spacing.sm },
+  divider: { height: 1, backgroundColor: colors.line },
+  badge: { fontFamily: fonts.hud, color: colors.xp },
   signOut: { borderWidth: 1, borderColor: colors.line, borderRadius: radii.md, paddingVertical: spacing.lg, alignItems: "center" },
   signOutText: { fontFamily: fonts.bodyBold, color: colors.danger },
 });
